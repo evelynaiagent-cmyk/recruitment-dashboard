@@ -1,0 +1,2306 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>招聘组数据管理看板</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/zh.js"></script>
+<script src="import_data.js"></script>
+<style>
+/* ==================== 全局变量 & 重置 ==================== */
+:root {
+  --bg: #0f1117;
+  --bg2: #1a1d27;
+  --bg3: #242736;
+  --border: #2e3248;
+  --accent: #6c63ff;
+  --accent2: #00c6ff;
+  --accent3: #ff6b6b;
+  --accent4: #ffd93d;
+  --accent5: #6bcb77;
+  --text: #e8eaf6;
+  --text2: #9ba3c7;
+  --text3: #6b7299;
+  --card-shadow: 0 4px 24px rgba(0,0,0,0.4);
+  --radius: 12px;
+  --radius-sm: 8px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'PingFang SC','Microsoft YaHei',sans-serif; font-size: 14px; line-height: 1.6; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg2); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ==================== 顶部导航 ==================== */
+.topbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  background: var(--bg2); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 0; height: 56px; padding: 0 24px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.5);
+}
+.topbar-logo { font-size: 18px; font-weight: 700; color: var(--accent); margin-right: 32px; white-space: nowrap; }
+.topbar-logo span { color: var(--accent2); }
+.nav-tabs { display: flex; gap: 4px; flex: 1; }
+.nav-tab {
+  padding: 8px 20px; border-radius: var(--radius-sm); cursor: pointer;
+  color: var(--text2); font-size: 14px; font-weight: 500; transition: all .2s;
+  border: none; background: transparent; white-space: nowrap;
+}
+.nav-tab:hover { background: var(--bg3); color: var(--text); }
+.nav-tab.active { background: var(--accent); color: #fff; }
+.topbar-actions { margin-left: auto; display: flex; gap: 8px; }
+.btn { padding: 7px 16px; border-radius: var(--radius-sm); border: none; cursor: pointer; font-size: 13px; font-weight: 500; transition: all .2s; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: #7c74ff; }
+.btn-secondary { background: var(--bg3); color: var(--text2); border: 1px solid var(--border); }
+.btn-secondary:hover { color: var(--text); border-color: var(--accent); }
+.btn-danger { background: #ff4d4f22; color: var(--accent3); border: 1px solid #ff4d4f44; }
+.btn-danger:hover { background: #ff4d4f33; }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+.btn-success { background: #6bcb7722; color: var(--accent5); border: 1px solid #6bcb7744; }
+.btn-success:hover { background: #6bcb7733; }
+
+/* ==================== 主内容区 ==================== */
+.main { padding: 76px 24px 24px; min-height: 100vh; }
+
+/* ==================== 页面 ==================== */
+.page { display: none; }
+.page.active { display: block; }
+
+/* ==================== 卡片 ==================== */
+.card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 20px; box-shadow: var(--card-shadow);
+}
+.card-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+.card-title .dot { width: 4px; height: 16px; border-radius: 2px; background: var(--accent); }
+.grid { display: grid; gap: 16px; }
+.grid-2 { grid-template-columns: repeat(2, 1fr); }
+.grid-3 { grid-template-columns: repeat(3, 1fr); }
+.grid-4 { grid-template-columns: repeat(4, 1fr); }
+.grid-5 { grid-template-columns: repeat(5, 1fr); }
+@media(max-width:1200px) { .grid-5 { grid-template-columns: repeat(3,1fr); } .grid-4 { grid-template-columns: repeat(2,1fr); } }
+@media(max-width:768px) { .grid-2,.grid-3,.grid-4,.grid-5 { grid-template-columns: 1fr; } }
+
+/* ==================== KPI 卡片 ==================== */
+.kpi-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 20px; position: relative; overflow: hidden;
+}
+.kpi-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+}
+.kpi-card.c1::before { background: var(--accent); }
+.kpi-card.c2::before { background: var(--accent2); }
+.kpi-card.c3::before { background: var(--accent3); }
+.kpi-card.c4::before { background: var(--accent4); }
+.kpi-card.c5::before { background: var(--accent5); }
+.kpi-label { font-size: 12px; color: var(--text2); margin-bottom: 8px; }
+.kpi-value { font-size: 32px; font-weight: 700; line-height: 1; }
+.kpi-sub { font-size: 12px; color: var(--text3); margin-top: 6px; }
+.kpi-card.c1 .kpi-value { color: var(--accent); }
+.kpi-card.c2 .kpi-value { color: var(--accent2); }
+.kpi-card.c3 .kpi-value { color: var(--accent3); }
+.kpi-card.c4 .kpi-value { color: var(--accent4); }
+.kpi-card.c5 .kpi-value { color: var(--accent5); }
+
+/* ==================== 图表容器 ==================== */
+.chart-wrap { position: relative; width: 100%; }
+.chart-wrap canvas { width: 100% !important; }
+
+/* ==================== 子Tab ==================== */
+.sub-tabs { display: flex; gap: 4px; margin-bottom: 20px; background: var(--bg2); padding: 4px; border-radius: var(--radius-sm); border: 1px solid var(--border); width: fit-content; }
+.sub-tab { padding: 7px 20px; border-radius: 6px; cursor: pointer; color: var(--text2); font-size: 13px; font-weight: 500; transition: all .2s; border: none; background: transparent; }
+.sub-tab:hover { color: var(--text); }
+.sub-tab.active { background: var(--accent); color: #fff; }
+
+/* ==================== 表格 ==================== */
+.table-wrap { overflow-x: auto; border-radius: var(--radius-sm); border: 1px solid var(--border); }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead tr { background: var(--bg3); }
+th { padding: 10px 14px; text-align: left; color: var(--text2); font-weight: 600; white-space: nowrap; border-bottom: 1px solid var(--border); }
+td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover { background: rgba(108,99,255,0.05); }
+.tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+.tag-local { background: rgba(108,99,255,0.2); color: var(--accent); }
+.tag-uk { background: rgba(0,198,255,0.2); color: var(--accent2); }
+.tag-remote { background: rgba(107,203,119,0.2); color: var(--accent5); }
+
+/* ==================== 表单 ==================== */
+.form-section { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 20px; }
+.form-section-title { font-size: 15px; font-weight: 600; color: var(--accent); margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.form-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px; }
+@media(max-width:900px) { .form-row { grid-template-columns: 1fr; } }
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-group label { font-size: 12px; color: var(--text2); font-weight: 500; }
+.form-group label .req { color: var(--accent3); margin-left: 2px; }
+.form-control {
+  background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  color: var(--text); padding: 9px 12px; font-size: 13px; transition: border-color .2s;
+  width: 100%;
+}
+.form-control:focus { outline: none; border-color: var(--accent); }
+.form-control option { background: var(--bg3); }
+select.form-control { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239ba3c7' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px; }
+textarea.form-control { resize: vertical; min-height: 70px; }
+
+/* 动态行 */
+.dynamic-rows { display: flex; flex-direction: column; gap: 8px; }
+.dynamic-row { display: flex; gap: 8px; align-items: center; }
+.dynamic-row .form-control { flex: 1; }
+.dynamic-row .form-control:first-child { flex: 2; }
+.remove-row { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 16px; padding: 0 4px; transition: color .2s; }
+.remove-row:hover { color: var(--accent3); }
+.add-row-btn { margin-top: 6px; align-self: flex-start; }
+
+/* ==================== 日历选择 ==================== */
+.date-nav { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+.date-nav .form-control { width: auto; }
+.date-display { font-size: 16px; font-weight: 600; color: var(--text); }
+
+/* ==================== 数据卡片（展示用） ==================== */
+.data-card { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px; margin-bottom: 12px; position: relative; }
+.data-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.data-card-title { font-weight: 600; font-size: 14px; }
+.data-card-actions { display: flex; gap: 6px; }
+.data-card-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+@media(max-width:900px) { .data-card-grid { grid-template-columns: repeat(2, 1fr); } }
+.data-field { display: flex; flex-direction: column; gap: 2px; }
+.data-field-label { font-size: 11px; color: var(--text3); }
+.data-field-value { font-size: 15px; font-weight: 600; color: var(--text); }
+.data-field-sub { font-size: 11px; color: var(--text2); margin-top: 2px; }
+.collapse-btn { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 4px; margin-top: 10px; }
+.collapse-btn:hover { color: var(--accent2); }
+.collapsible { overflow: hidden; transition: max-height .3s; }
+
+/* ==================== 漏斗图 ==================== */
+.funnel-wrap { display: flex; flex-direction: column; gap: 6px; padding: 10px 0; }
+.funnel-bar { display: flex; align-items: center; gap: 12px; }
+.funnel-label { width: 110px; text-align: right; font-size: 12px; color: var(--text2); flex-shrink: 0; }
+.funnel-track { flex: 1; background: var(--bg3); border-radius: 4px; height: 28px; position: relative; overflow: hidden; }
+.funnel-fill { height: 100%; border-radius: 4px; transition: width .6s; display: flex; align-items: center; padding-left: 10px; font-size: 12px; font-weight: 600; color: #fff; }
+.funnel-num { width: 50px; text-align: right; font-size: 13px; font-weight: 700; color: var(--text); }
+
+/* ==================== 分割线 ==================== */
+.divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+
+/* ==================== 空状态 ==================== */
+.empty-state { text-align: center; padding: 48px 20px; color: var(--text3); }
+.empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+.empty-state p { font-size: 14px; }
+
+/* ==================== Toast ==================== */
+.toast {
+  position: fixed; bottom: 30px; right: 30px; z-index: 9999;
+  background: var(--accent5); color: #fff; padding: 12px 24px;
+  border-radius: var(--radius-sm); font-weight: 600; font-size: 14px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5); opacity: 0;
+  transform: translateY(20px); transition: all .3s;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast.error { background: var(--accent3); }
+
+/* ==================== Modal ==================== */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 200; display: none; align-items: center; justify-content: center; }
+.modal-overlay.open { display: flex; }
+.modal { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; width: 90%; max-width: 900px; max-height: 90vh; overflow-y: auto; }
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.modal-title { font-size: 16px; font-weight: 700; }
+.modal-close { background: none; border: none; color: var(--text3); font-size: 20px; cursor: pointer; }
+.modal-close:hover { color: var(--text); }
+.modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+
+/* ==================== Badge ==================== */
+.badge { display: inline-block; padding: 1px 6px; border-radius: 10px; font-size: 11px; font-weight: 600; background: rgba(108,99,255,0.2); color: var(--accent); margin-left: 4px; }
+
+/* ==================== 周导航 ==================== */
+.week-nav { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+.week-nav .week-label { font-size: 15px; font-weight: 600; min-width: 180px; text-align: center; }
+
+/* ==================== 月导航 ==================== */
+.month-nav { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+.month-nav .month-label { font-size: 15px; font-weight: 600; min-width: 120px; text-align: center; }
+
+/* ==================== 打印 ==================== */
+@media print {
+  .topbar, .nav-tabs, .topbar-actions, .btn, .sub-tabs, .date-nav { display: none !important; }
+  .main { padding: 0 !important; }
+  .card, .kpi-card, .data-card { break-inside: avoid; box-shadow: none; border: 1px solid #ccc; }
+  body { background: #fff; color: #000; }
+}
+
+/* ==================== 工具类 ==================== */
+.mt-16 { margin-top: 16px; }
+.mb-16 { margin-bottom: 16px; }
+.mt-8 { margin-top: 8px; }
+.flex { display: flex; }
+.flex-center { align-items: center; }
+.gap-8 { gap: 8px; }
+.gap-12 { gap: 12px; }
+.text-muted { color: var(--text2); }
+.text-sm { font-size: 12px; }
+.fw-bold { font-weight: 700; }
+.detail-list { list-style: none; margin-top: 6px; }
+.detail-list li { font-size: 12px; color: var(--text2); padding: 2px 0; }
+.detail-list li::before { content: '→ '; color: var(--accent); }
+
+/* ==================== 岗位搜索下拉 ==================== */
+.job-combo { position: relative; flex: 2; }
+.job-combo-input { width: 100%; }
+.job-dropdown {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 500;
+  background: var(--bg2); border: 1px solid var(--accent); border-radius: var(--radius-sm);
+  max-height: 220px; overflow-y: auto; display: none; box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+.job-dropdown.open { display: block; }
+.job-dropdown-item {
+  padding: 8px 12px; cursor: pointer; font-size: 13px; color: var(--text);
+  border-bottom: 1px solid var(--border);
+}
+.job-dropdown-item:last-child { border-bottom: none; }
+.job-dropdown-item:hover, .job-dropdown-item.active { background: rgba(108,99,255,0.15); color: var(--accent); }
+.job-dropdown-item.add-new { color: var(--accent2); font-weight: 600; }
+.job-dropdown-item.add-new::before { content: '+ '; }
+.job-dropdown-empty { padding: 10px 12px; font-size: 12px; color: var(--text3); }
+
+/* ==================== 预警横幅 ==================== */
+.alert-banner { border-radius: var(--radius); padding: 12px 18px; margin-bottom: 12px; display: flex; align-items: flex-start; gap: 12px; }
+.alert-banner.warn { background: rgba(255,209,61,0.1); border: 1px solid rgba(255,209,61,0.4); }
+.alert-banner.danger { background: rgba(255,107,107,0.1); border: 1px solid rgba(255,107,107,0.4); }
+.alert-banner.info { background: rgba(108,99,255,0.1); border: 1px solid rgba(108,99,255,0.4); }
+.alert-icon { font-size: 18px; flex-shrink: 0; }
+.alert-body { flex: 1; }
+.alert-title { font-weight: 600; font-size: 13px; color: var(--text); }
+.alert-desc { font-size: 12px; color: var(--text2); margin-top: 2px; }
+#alerts-container { margin-bottom: 16px; }
+
+/* ==================== 岗位分析 ==================== */
+.job-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px,1fr)); gap: 14px; }
+.job-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px; cursor: pointer; transition: border-color .2s, transform .2s; }
+.job-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+.job-card-name { font-weight: 600; font-size: 13px; margin-bottom: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.job-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 6px; }
+.job-stat { text-align: center; }
+.job-stat-val { font-size: 18px; font-weight: 700; color: var(--accent); }
+.job-stat-label { font-size: 10px; color: var(--text3); margin-top: 2px; }
+.job-detail-panel { display: none; }
+.job-detail-panel.open { display: block; }
+.job-search-bar { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.job-search-bar .form-control { flex: 1; min-width: 200px; }
+.job-type-tabs { display: flex; gap: 4px; }
+.back-btn { background: none; border: none; color: var(--accent); cursor: pointer; font-size: 13px; margin-bottom: 16px; display: flex; align-items: center; gap: 4px; }
+.back-btn:hover { text-decoration: underline; }
+
+/* flatpickr 主题覆盖 */
+.flatpickr-calendar { background: var(--bg2); border: 1px solid var(--border); }
+.flatpickr-day { color: var(--text); }
+.flatpickr-day.selected { background: var(--accent); border-color: var(--accent); }
+.flatpickr-day:hover { background: var(--bg3); }
+.flatpickr-months .flatpickr-month { background: var(--bg2); color: var(--text); }
+.flatpickr-current-month { color: var(--text); }
+.flatpickr-weekday { color: var(--text2); }
+.flatpickr-day.flatpickr-disabled { color: var(--text3); }
+span.flatpickr-weekday { background: var(--bg2); }
+.flatpickr-months .flatpickr-prev-month, .flatpickr-months .flatpickr-next-month { fill: var(--text2); }
+</style>
+</head>
+<body>
+
+<!-- 顶部导航 -->
+<div class="topbar">
+  <div class="topbar-logo">招聘<span>看板</span></div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showPage('dashboard')">总览 Dashboard</button>
+    <button class="nav-tab" onclick="showPage('local')">英国招聘</button>
+    <button class="nav-tab" onclick="showPage('remote')">远程招聘</button>
+    <button class="nav-tab" onclick="showPage('jobs')">岗位分析</button>
+    <button class="nav-tab" onclick="showPage('entry')">数据录入</button>
+  </div>
+  <div class="topbar-actions">
+    <button class="btn btn-success btn-sm" onclick="importRealData()">导入CSV数据</button>
+    <button class="btn btn-secondary btn-sm" onclick="window.print()">打印/PDF</button>
+  </div>
+</div>
+
+<div class="main">
+
+<!-- ==================== 页面1：总览 Dashboard ==================== -->
+<div id="page-dashboard" class="page active">
+  <div id="alerts-container"></div>
+  <div class="grid grid-5 mb-16" id="dash-kpi"></div>
+  <div class="grid grid-2 mt-16">
+    <div class="card">
+      <div class="card-title"><span class="dot"></span>各地区 KPI 对比（本周）</div>
+      <div class="chart-wrap" style="height:260px"><canvas id="chart-region-bar"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="dot"></span>招聘漏斗（本月累计）</div>
+      <div id="dash-funnel" class="funnel-wrap"></div>
+    </div>
+  </div>
+  <div class="grid grid-2 mt-16">
+    <div class="card">
+      <div class="card-title"><span class="dot"></span>本周每日趋势（简历 / 推荐 / 面试）</div>
+      <div class="chart-wrap" style="height:240px"><canvas id="chart-week-trend"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="dot"></span>本月岗位推荐分布</div>
+      <div class="chart-wrap" style="height:240px"><canvas id="chart-job-pie"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 页面2：英国招聘 ==================== -->
+<div id="page-local" class="page">
+  <div class="sub-tabs">
+    <button class="sub-tab active" onclick="localView('day',this)">日视图</button>
+    <button class="sub-tab" onclick="localView('week',this)">周视图</button>
+    <button class="sub-tab" onclick="localView('month',this)">月视图</button>
+  </div>
+
+  <!-- 日视图 -->
+  <div id="local-day">
+    <div class="date-nav">
+      <span class="text-muted">选择日期：</span>
+      <input type="text" id="local-day-picker" class="form-control" style="width:150px" placeholder="YYYY-MM-DD" readonly>
+      <button class="btn btn-secondary btn-sm" onclick="localDayNav(-1)">&#8249; 前一天</button>
+      <button class="btn btn-secondary btn-sm" onclick="localDayNav(1)">后一天 &#8250;</button>
+      <button class="btn btn-primary btn-sm" onclick="showLocalDayData()">查看</button>
+    </div>
+    <div id="local-day-content"></div>
+  </div>
+
+  <!-- 周视图 -->
+  <div id="local-week" style="display:none">
+    <div class="week-nav">
+      <button class="btn btn-secondary btn-sm" onclick="localWeekNav(-1)">&#8249; 上周</button>
+      <span class="week-label" id="local-week-label"></span>
+      <button class="btn btn-secondary btn-sm" onclick="localWeekNav(1)">下周 &#8250;</button>
+    </div>
+    <div class="grid grid-5 mb-16" id="local-week-kpi"></div>
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-title"><span class="dot"></span>本周每日趋势</div>
+        <div class="chart-wrap" style="height:240px"><canvas id="chart-local-week-trend"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="dot"></span>岗位推荐排名</div>
+        <div class="chart-wrap" style="height:240px"><canvas id="chart-local-week-jobs"></canvas></div>
+      </div>
+    </div>
+    <div class="card mt-16">
+      <div class="card-title"><span class="dot"></span>周度明细记录</div>
+      <div id="local-week-table"></div>
+    </div>
+  </div>
+
+  <!-- 月视图 -->
+  <div id="local-month" style="display:none">
+    <div class="month-nav">
+      <button class="btn btn-secondary btn-sm" onclick="localMonthNav(-1)">&#8249; 上月</button>
+      <span class="month-label" id="local-month-label"></span>
+      <button class="btn btn-secondary btn-sm" onclick="localMonthNav(1)">下月 &#8250;</button>
+    </div>
+    <div class="grid grid-5 mb-16" id="local-month-kpi"></div>
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-title"><span class="dot"></span>月度每日趋势</div>
+        <div class="chart-wrap" style="height:240px"><canvas id="chart-local-month-trend"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="dot"></span>岗位推荐占比</div>
+        <div class="chart-wrap" style="height:240px"><canvas id="chart-local-month-pie"></canvas></div>
+      </div>
+    </div>
+    <div class="card mt-16">
+      <div class="card-title"><span class="dot"></span>月度明细表格</div>
+      <div id="local-month-table" class="table-wrap"></div>
+      <div class="mt-16"><button class="btn btn-secondary btn-sm" onclick="exportCSV('local')">导出本月 CSV</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 页面3：远程招聘 ==================== -->
+<div id="page-remote" class="page">
+  <div class="sub-tabs">
+    <button class="sub-tab active" onclick="remoteView('day',this)">日视图</button>
+    <button class="sub-tab" onclick="remoteView('week',this)">周视图</button>
+    <button class="sub-tab" onclick="remoteView('month',this)">月视图</button>
+  </div>
+
+  <!-- 日视图 -->
+  <div id="remote-day">
+    <div class="date-nav">
+      <span class="text-muted">选择日期：</span>
+      <input type="text" id="remote-day-picker" class="form-control" style="width:150px" placeholder="YYYY-MM-DD" readonly>
+      <button class="btn btn-secondary btn-sm" onclick="remoteDayNav(-1)">&#8249; 前一天</button>
+      <button class="btn btn-secondary btn-sm" onclick="remoteDayNav(1)">后一天 &#8250;</button>
+      <button class="btn btn-primary btn-sm" onclick="showRemoteDayData()">查看</button>
+    </div>
+    <div id="remote-day-content"></div>
+  </div>
+
+  <!-- 周视图 -->
+  <div id="remote-week" style="display:none">
+    <div class="week-nav">
+      <button class="btn btn-secondary btn-sm" onclick="remoteWeekNav(-1)">&#8249; 上周</button>
+      <span class="week-label" id="remote-week-label"></span>
+      <button class="btn btn-secondary btn-sm" onclick="remoteWeekNav(1)">下周 &#8250;</button>
+    </div>
+    <div class="grid grid-5 mb-16" id="remote-week-kpi"></div>
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-title"><span class="dot"></span>团队周趋势</div>
+        <div class="chart-wrap" style="height:240px"><canvas id="chart-remote-week-trend"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="dot"></span>专员推荐数排行</div>
+        <div class="chart-wrap" style="height:240px"><canvas id="chart-remote-week-rank"></canvas></div>
+      </div>
+    </div>
+    <div class="card mt-16">
+      <div class="card-title"><span class="dot"></span>专员周度 KPI 汇总</div>
+      <div id="remote-week-table"></div>
+    </div>
+  </div>
+
+  <!-- 月视图 -->
+  <div id="remote-month" style="display:none">
+    <div class="month-nav">
+      <button class="btn btn-secondary btn-sm" onclick="remoteMonthNav(-1)">&#8249; 上月</button>
+      <span class="month-label" id="remote-month-label"></span>
+      <button class="btn btn-secondary btn-sm" onclick="remoteMonthNav(1)">下月 &#8250;</button>
+    </div>
+    <div class="grid grid-5 mb-16" id="remote-month-kpi"></div>
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-title"><span class="dot"></span>月度趋势</div>
+        <div class="chart-wrap" style="height:240px"><canvas id="chart-remote-month-trend"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="dot"></span>岗位需求热度</div>
+        <div class="chart-wrap" style="height:240px"><canvas id="chart-remote-month-pie"></canvas></div>
+      </div>
+    </div>
+    <div class="card mt-16">
+      <div class="card-title"><span class="dot"></span>专员月度绩效排行</div>
+      <div id="remote-month-table"></div>
+      <div class="mt-16"><button class="btn btn-secondary btn-sm" onclick="exportCSV('remote')">导出本月 CSV</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 页面4：数据录入 ==================== -->
+<div id="page-entry" class="page">
+  <div class="sub-tabs">
+    <button class="sub-tab active" onclick="entryView('local',this)">英国</button>
+    <button class="sub-tab" onclick="entryView('remote',this)">远程招聘</button>
+  </div>
+
+  <!-- 本地/英国录入表单 -->
+  <div id="entry-local">
+    <form id="form-local" onsubmit="submitLocal(event)">
+      <div class="form-section">
+        <div class="form-section-title">基础信息</div>
+        <input type="hidden" id="l-region" value="英国">
+        <div class="form-row">
+          <div class="form-group">
+            <label>日期 <span class="req">*</span></label>
+            <input type="text" id="l-date" class="form-control" placeholder="YYYY-MM-DD" required readonly>
+          </div>
+          <div class="form-group">
+            <label>录入人</label>
+            <select id="l-recorder" class="form-control">
+              <option value="">-- 选填 --</option>
+              <option>Ojisamer</option><option>Cecilia</option><option>Max</option>
+              <option>黑糖</option><option>啵啵</option><option>will</option>
+              <option>Adela</option><option>James</option><option>Evelyn</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">简历收取</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>新收简历总数 <span class="req">*</span></label>
+            <input type="number" id="l-cv-total" class="form-control" min="0" value="0" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>各岗位收取明细</label>
+          <div class="dynamic-rows" id="l-cv-detail"></div>
+          <button type="button" class="btn btn-secondary btn-sm add-row-btn" onclick="addRow('l-cv-detail')">+ 添加岗位</button>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">初筛沟通</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>新增沟通人数（初筛）</label>
+            <input type="number" id="l-screen-new" class="form-control" min="0" value="0">
+          </div>
+          <div class="form-group">
+            <label>正在沟通人数（存量）</label>
+            <input type="number" id="l-screen-ongoing" class="form-control" min="0" value="0">
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">推荐</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>推荐总数（符合JD）</label>
+            <input type="number" id="l-recommend-total" class="form-control" min="0" value="0">
+          </div>
+          <div class="form-group">
+            <label>主动获取推荐数量</label>
+            <input type="number" id="l-proactive-total" class="form-control" min="0" value="0">
+          </div>
+        </div>
+        <div class="form-group mb-16">
+          <label>各岗位推荐明细</label>
+          <div class="dynamic-rows" id="l-recommend-detail"></div>
+          <button type="button" class="btn btn-secondary btn-sm add-row-btn" onclick="addRow('l-recommend-detail')">+ 添加岗位</button>
+        </div>
+        <div class="form-group">
+          <label>主动获取渠道明细</label>
+          <div class="dynamic-rows" id="l-proactive-detail"></div>
+          <button type="button" class="btn btn-secondary btn-sm add-row-btn" onclick="addRow('l-proactive-detail','渠道/来源','数量')">+ 添加渠道</button>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">面试</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>一面数量</label>
+            <input type="number" id="l-int1-total" class="form-control" min="0" value="0">
+          </div>
+          <div class="form-group">
+            <label>二面数量</label>
+            <input type="number" id="l-int2-total" class="form-control" min="0" value="0">
+          </div>
+        </div>
+        <div class="form-group mb-16">
+          <label>一面明细</label>
+          <div class="dynamic-rows" id="l-int1-detail"></div>
+          <button type="button" class="btn btn-secondary btn-sm add-row-btn" onclick="addRow('l-int1-detail','岗位','候选人姓名')">+ 添加记录</button>
+        </div>
+        <div class="form-group">
+          <label>二面明细</label>
+          <div class="dynamic-rows" id="l-int2-detail"></div>
+          <button type="button" class="btn btn-secondary btn-sm add-row-btn" onclick="addRow('l-int2-detail','岗位','候选人姓名')">+ 添加记录</button>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">Offer & 入职</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>当天发放 Offer 数</label>
+            <input type="number" id="l-offer" class="form-control" min="0" value="0">
+          </div>
+          <div class="form-group">
+            <label>当天入职数</label>
+            <input type="number" id="l-onboard" class="form-control" min="0" value="0">
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">备注</div>
+        <div class="form-group">
+          <textarea id="l-remark" class="form-control" placeholder="选填..."></textarea>
+        </div>
+      </div>
+
+      <div class="flex gap-8">
+        <button type="submit" class="btn btn-primary">提交录入</button>
+        <button type="button" class="btn btn-secondary" onclick="resetLocalForm()">重置</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- 远程招聘录入表单 -->
+  <div id="entry-remote" style="display:none">
+    <form id="form-remote" onsubmit="submitRemote(event)">
+      <div class="form-section">
+        <div class="form-section-title">基础信息</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>日期 <span class="req">*</span></label>
+            <input type="text" id="r-date" class="form-control" placeholder="YYYY-MM-DD" required readonly>
+          </div>
+          <div class="form-group">
+            <label>招聘专员姓名 <span class="req">*</span></label>
+            <select id="r-name" class="form-control" required>
+              <option value="">-- 请选择 --</option>
+              <option>Ojisamer</option><option>Cecilia</option><option>Max</option>
+              <option>黑糖</option><option>啵啵</option><option>will</option>
+              <option>Adela</option><option>James</option><option>Evelyn</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">核心指标</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>新收简历总数</label>
+            <input type="number" id="r-cv" class="form-control" min="0" value="0">
+          </div>
+          <div class="form-group">
+            <label>新增沟通人数（初筛）</label>
+            <input type="number" id="r-screen" class="form-control" min="0" value="0">
+          </div>
+          <div class="form-group">
+            <label>推荐总数（符合JD）</label>
+            <input type="number" id="r-recommend-total" class="form-control" min="0" value="0">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>各岗位推荐明细</label>
+          <div class="dynamic-rows" id="r-recommend-detail"></div>
+          <button type="button" class="btn btn-secondary btn-sm add-row-btn" onclick="addRow('r-recommend-detail')">+ 添加岗位</button>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">面试</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>约面数量</label>
+            <input type="number" id="r-scheduled" class="form-control" min="0" value="0">
+          </div>
+          <div class="form-group">
+            <label>当天面试数量</label>
+            <input type="number" id="r-interview" class="form-control" min="0" value="0">
+          </div>
+          <div class="form-group">
+            <label>Offer 申请数</label>
+            <input type="number" id="r-offer" class="form-control" min="0" value="0">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>面试明细</label>
+          <div class="dynamic-rows" id="r-interview-detail"></div>
+          <button type="button" class="btn btn-secondary btn-sm add-row-btn" onclick="addRow('r-interview-detail','岗位','候选人姓名')">+ 添加记录</button>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">入职</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>当天入职数</label>
+            <input type="number" id="r-onboard" class="form-control" min="0" value="0">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>入职岗位明细</label>
+          <div class="dynamic-rows" id="r-onboard-detail"></div>
+          <button type="button" class="btn btn-secondary btn-sm add-row-btn" onclick="addRow('r-onboard-detail')">+ 添加岗位</button>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">备注</div>
+        <div class="form-group">
+          <textarea id="r-remark" class="form-control" placeholder="选填..."></textarea>
+        </div>
+      </div>
+
+      <div class="flex gap-8">
+        <button type="submit" class="btn btn-primary">提交录入</button>
+        <button type="button" class="btn btn-secondary" onclick="resetRemoteForm()">重置</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ==================== 页面5：岗位分析 ==================== -->
+<div id="page-jobs" class="page">
+  <div class="job-detail-panel" id="job-detail-panel">
+    <button class="back-btn" onclick="closeJobDetail()">← 返回岗位列表</button>
+    <div id="job-detail-content"></div>
+  </div>
+  <div id="job-list-panel">
+    <div class="job-search-bar">
+      <input type="text" id="job-search-input" class="form-control" placeholder="搜索岗位名称..." oninput="renderJobList()">
+      <div class="job-type-tabs">
+        <button class="sub-tab active" onclick="jobTypeFilter('all',this)">全部</button>
+        <button class="sub-tab" onclick="jobTypeFilter('uk',this)">英国</button>
+        <button class="sub-tab" onclick="jobTypeFilter('remote',this)">远程</button>
+      </div>
+    </div>
+    <div class="job-grid" id="job-grid"></div>
+  </div>
+</div>
+
+</div><!-- /main -->
+
+<!-- 加载遮罩 -->
+<div id="loading-overlay" style="
+  display:none; position:fixed; inset:0; z-index:9999;
+  background:rgba(15,17,23,0.85); backdrop-filter:blur(4px);
+  flex-direction:column; align-items:center; justify-content:center; gap:16px;">
+  <div style="width:40px;height:40px;border:3px solid #2e3248;border-top-color:#6c63ff;
+       border-radius:50%;animation:spin .8s linear infinite"></div>
+  <div id="loading-text" style="color:#9ba3c7;font-size:14px">加载中...</div>
+</div>
+<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- 编辑 Modal -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title">编辑记录</div>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div id="modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveEdit()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==================== 常量 ====================
+// 英国招聘岗位
+const JOBS_UK = [
+  '人员管理助理（偏沟通协调方向）','助理 Assistant（本杰明）','住家保洁员（高端家庭）',
+  'Spine动画师','住家家庭助理/管家','助理+司机（田七）','助理（Marcus）',
+  'Unity TA（美术向）','商务BD','内容运营专员','住家阿姨（Ann总）','物业管理员',
+  '综合行政总监','HRBP经理','Brand & Content Executive','出纳','助理（Ann总）',
+  'DevOps工程师','英国行政/人事助理（数据分析方向）','家庭专职司机','AI产品经理',
+  'Finance Operation Assistant','行业研究员','增长运营（中高级专员）','增长运营经理','增长运营负责人'
+];
+
+// 远程招聘岗位
+const JOBS_REMOTE = [
+  '中高级PHP','业务HRBP','高级游戏原画师（原画组长）','高级/资深优化师','高级/资深产品调优优化师',
+  '资深前端/素材优化师','Flutter开发工程师（App浏览器方向）','Node QP开发','游戏数据分析师',
+  '3D绑定师','游戏动作特效','QA测试专员','QA测试工程师','AIOps工程师（AIGC/ComfyUI方向）',
+  'UI（无极团队）','广告接入技术支持工程师','AI技术工程师（中/高级）','高级前端工程师','高级后端工程师',
+  '高级产品经理','高级内容运营','高级流量运营','高级增长运营','高级AI应用工程师（Agent Ops）',
+  '高级PHP开发工程师','高级商务广告销售经理','高级PHP','高级运营','3D战斗动画设计师','3D角色设计师',
+  '分镜师','CTO技术助理（技术与数据方向）','广告销售','远程中级渠道拓展','远程高级渠道拓展',
+  '远程高级渠道运营','HRBP组长','HRBP主管','HRBP经理','综合行政总监','综合行政经理','综合行政主管',
+  '人力行政总监助理（COE方向）','高级培训方向HRBP','人力资源共享服务中心（SSC）专员',
+  '远程中高级商务','Senior SSC','OD组织发展','高级培训专家','薪酬绩效专家_数据分析方向','运营专员',
+  '人资总监助理','前端架构师','远程高级产品经理（程序化广告平台）','高级产品评测专家','流量策略专家',
+  '远程高级产品经理','流量与预算建模高级专家','产品利用率专家','LLM交互架构师','模型微调/Lora训练师',
+  'AI美术资产总监','AIGC视频生成主管','运维工程师（游戏方向）','质控审计优化师','数据分析员',
+  '资深广告策略优化师','生成式广告素材专家','优化专家','投放专家','广告优化部负责人','UI',
+  'Web前端工程师（混合渲染方向）','安卓开发工程师','投放系统产品经理','数据中心产品经理',
+  '白帽SEO','黑帽SEO','技术助理','Java高级架构师','推荐算法工程师','前端工程师（视频相关经验）',
+  '产品运营负责人','社区项目负责人','资深自媒体策划','资深品牌营销','资深社区产品经理',
+  '技术/业务CTO','高级架构师','数据产品经理','行业研究员','技术总监/研发负责人',
+  'AI产品经理（中/高级）','高级渠道拓展运营','高级测试工程师','高级UI/UX设计师','SEO优化专家'
+];
+
+const MEMBERS = ['Ojisamer','Cecilia','Max','黑糖','啵啵','will','Adela','James','Evelyn'];
+
+const CHART_COLORS = ['#6c63ff','#00c6ff','#ff6b6b','#ffd93d','#6bcb77','#a78bfa','#f97316','#ec4899','#14b8a6','#f59e0b'];
+
+// ==================== Supabase 配置 ====================
+const SUPABASE_URL  = 'https://scjlplyuucysdhrfatrp.supabase.co';
+const SUPABASE_KEY  = 'sb_publishable_IIHJnxZQIF3AcSUG7wHKFg_KDgDmxjA';
+const TABLE_LOCAL   = 'uk_records';
+const TABLE_REMOTE  = 'remote_records';
+
+// 保留这两个 key 常量供其他地方区分表类型
+const LS_LOCAL  = 'recruit_local';
+const LS_REMOTE = 'recruit_remote';
+
+// 内存缓存（渲染层仍然同步读取）
+const _cache = { [LS_LOCAL]: [], [LS_REMOTE]: [] };
+
+// 底层 fetch 封装
+async function sbFetch(method, table, body = null, query = '') {
+  const url = `${SUPABASE_URL}/rest/v1/${table}${query}`;
+  const headers = {
+    'apikey':        SUPABASE_KEY,
+    'Authorization': `Bearer ${SUPABASE_KEY}`,
+    'Content-Type':  'application/json',
+  };
+  if (method === 'POST') headers['Prefer'] = 'resolution=merge-duplicates,return=minimal';
+  const res = await fetch(url, {
+    method,
+    headers,
+    body: body != null ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(`Supabase ${method} ${table}: ${res.status} ${txt}`);
+  }
+  if (res.status === 204 || method === 'DELETE' || method === 'PATCH') return [];
+  return res.json();
+}
+
+// 读取（同步，从内存缓存）
+function getData(key) {
+  return _cache[key] || [];
+}
+
+// 保存：先更新缓存（UI 立即响应），再异步同步到 Supabase
+function saveData(key, arr) {
+  const prev = [...(_cache[key] || [])];
+  _cache[key] = arr;
+  _syncToSupabase(key, arr, prev).catch(err => {
+    console.error('Supabase sync error:', err);
+    showToast('数据同步失败，请检查网络', 'error');
+  });
+}
+
+// 差量同步：只 upsert 变动行，只 delete 消失的行
+async function _syncToSupabase(key, newArr, oldArr) {
+  const table = key === LS_LOCAL ? TABLE_LOCAL : TABLE_REMOTE;
+  const oldMap = new Map(oldArr.map(r => [r.id, JSON.stringify(r)]));
+  const newIds = new Set(newArr.map(r => r.id));
+
+  // 需要 upsert 的（新增 or 内容变化）
+  const toUpsert = newArr.filter(r => {
+    const prev = oldMap.get(r.id);
+    return !prev || prev !== JSON.stringify(r);
+  });
+  // 需要删除的
+  const toDelete = oldArr.filter(r => !newIds.has(r.id)).map(r => r.id);
+
+  // 分批 upsert（每批 100 条，防止超时）
+  const BATCH = 100;
+  for (let i = 0; i < toUpsert.length; i += BATCH) {
+    const rows = toUpsert.slice(i, i + BATCH).map(r => ({ id: r.id, data: r }));
+    await sbFetch('POST', table, rows);
+  }
+  // 逐条删除（通常量小）
+  for (const id of toDelete) {
+    await sbFetch('DELETE', table, null, `?id=eq.${encodeURIComponent(id)}`);
+  }
+}
+
+// 初始加载：从 Supabase 拉取所有数据 → 填充缓存
+async function loadFromSupabase() {
+  const [localRows, remoteRows] = await Promise.all([
+    sbFetch('GET', TABLE_LOCAL,  null, '?select=data&order=created_at.asc'),
+    sbFetch('GET', TABLE_REMOTE, null, '?select=data&order=created_at.asc'),
+  ]);
+  _cache[LS_LOCAL]  = localRows.map(r => r.data);
+  _cache[LS_REMOTE] = remoteRows.map(r => r.data);
+}
+
+// ==================== 日期工具 ====================
+function today() { return dateStr(new Date()); }
+function dateStr(d) { return d.toISOString().slice(0,10); }
+function parseDate(s) { return new Date(s + 'T00:00:00'); }
+function getMondayOfWeek(d) {
+  const date = new Date(d);
+  const day = date.getDay(); // 0=Sun
+  const diff = day === 0 ? -6 : 1 - day;
+  date.setDate(date.getDate() + diff);
+  return date;
+}
+function getWeekDates(monday) {
+  const dates = [];
+  for(let i=0;i<7;i++) {
+    const d = new Date(monday);
+    d.setDate(d.getDate() + i);
+    dates.push(dateStr(d));
+  }
+  return dates;
+}
+function getMonthDates(year, month) {
+  const dates = [];
+  const days = new Date(year, month, 0).getDate();
+  for(let i=1;i<=days;i++) {
+    dates.push(`${year}-${String(month).padStart(2,'0')}-${String(i).padStart(2,'0')}`);
+  }
+  return dates;
+}
+function formatWeekLabel(monday) {
+  const sun = new Date(monday); sun.setDate(sun.getDate() + 6);
+  return `${dateStr(monday)} ~ ${dateStr(sun)}`;
+}
+function getWeeksInMonth(year, month) {
+  // Returns array of week start dates for the month
+  const weeks = [];
+  const firstDay = new Date(year, month-1, 1);
+  const lastDay = new Date(year, month, 0);
+  let cur = getMondayOfWeek(firstDay);
+  while(cur <= lastDay) {
+    weeks.push(new Date(cur));
+    cur = new Date(cur); cur.setDate(cur.getDate()+7);
+  }
+  return weeks;
+}
+
+// ==================== 模拟数据注入 ====================
+function injectDemoData() {
+  if(localStorage.getItem('demo_injected')) return;
+
+  const localData = [];
+  const remoteData = [];
+  const now = new Date();
+
+  // 生成近14天数据
+  for(let i=13; i>=0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const ds = dateStr(d);
+    if(d.getDay() === 0 || d.getDay() === 6) continue; // 跳过周末
+
+    // 英国招聘数据
+    {
+      const region = '英国';
+      const cv = 15 + Math.floor(Math.random()*25);
+      const rec = 3 + Math.floor(Math.random()*8);
+      const int1 = 2 + Math.floor(Math.random()*5);
+      const int2 = Math.floor(Math.random()*3);
+      const offer = Math.floor(Math.random()*2);
+      const onboard = Math.floor(Math.random()*2);
+
+      const jobsSample = JOBS_UK;
+      const recDetail = [];
+      let tot = 0;
+      for(let j=0; j<3 && tot<rec; j++) {
+        const q = j===2 ? rec-tot : 1+Math.floor(Math.random()*(rec-tot));
+        recDetail.push({name: jobsSample[Math.floor(Math.random()*jobsSample.length)], qty: q});
+        tot += q;
+      }
+
+      localData.push({
+        id: `local_${ds}_${region}_${Date.now()}_${Math.random()}`,
+        date: ds, region,
+        cvTotal: cv,
+        cvDetail: [{name: jobsSample[Math.floor(Math.random()*jobsSample.length)], qty: Math.floor(cv*0.4)},
+                   {name: jobsSample[Math.floor(Math.random()*jobsSample.length)], qty: Math.floor(cv*0.3)}],
+        screenNew: 5 + Math.floor(Math.random()*10),
+        screenOngoing: 20 + Math.floor(Math.random()*30),
+        recommendTotal: rec,
+        recommendDetail: recDetail,
+        proactiveTotal: 1+Math.floor(Math.random()*3),
+        proactiveDetail: [{name:'LinkedIn',qty:1},{name:'猎聘',qty:Math.floor(Math.random()*2)}],
+        int1Total: int1,
+        int1Detail: Array.from({length:int1},(_,k)=>({name:jobsSample[k%jobsSample.length], person:`候选人${k+1}`})),
+        int2Total: int2,
+        int2Detail: Array.from({length:int2},(_,k)=>({name:jobsSample[k%jobsSample.length], person:`候选人A${k+1}`})),
+        offer, onboard,
+        recorder: MEMBERS[Math.floor(Math.random()*MEMBERS.length)],
+        remark: ''
+      });
+    }
+
+    // 远程数据（每天2-3名专员）
+    const numMembers = 2 + Math.floor(Math.random()*2);
+    const selectedMembers = [...MEMBERS].sort(()=>Math.random()-.5).slice(0,numMembers);
+    selectedMembers.forEach(name => {
+      const cv = 8+Math.floor(Math.random()*15);
+      const rec = 2+Math.floor(Math.random()*6);
+      const int = 1+Math.floor(Math.random()*4);
+      const offer = Math.floor(Math.random()*2);
+      const onboard = Math.floor(Math.random()*2);
+      const jobsSample = JOBS_REMOTE.slice(0,20);
+      const recDetail = [];
+      let tot = 0;
+      for(let j=0; j<2 && tot<rec; j++) {
+        const q = j===1 ? rec-tot : 1+Math.floor(Math.random()*(rec-tot));
+        recDetail.push({name: jobsSample[Math.floor(Math.random()*jobsSample.length)], qty: q});
+        tot += q;
+      }
+
+      remoteData.push({
+        id: `remote_${ds}_${name}_${Date.now()}_${Math.random()}`,
+        date: ds, name,
+        cvTotal: cv,
+        screenNew: 3+Math.floor(Math.random()*8),
+        recommendTotal: rec,
+        recommendDetail: recDetail,
+        scheduledInt: 2+Math.floor(Math.random()*4),
+        interviewTotal: int,
+        interviewDetail: Array.from({length:int},(_,k)=>({name:jobsSample[k%jobsSample.length], person:`候选人${k+1}`})),
+        offer, onboard,
+        onboardDetail: onboard>0?[{name:jobsSample[0],qty:onboard}]:[],
+        remark: ''
+      });
+    });
+  }
+
+  saveData(LS_LOCAL, localData);
+  saveData(LS_REMOTE, remoteData);
+  localStorage.setItem('demo_injected','1');
+}
+
+// ==================== 全局状态 ====================
+let currentLocalDate = today();
+let currentLocalWeekStart = getMondayOfWeek(new Date());
+let currentLocalMonth = { year: new Date().getFullYear(), month: new Date().getMonth()+1 };
+
+let currentRemoteDate = today();
+let currentRemoteWeekStart = getMondayOfWeek(new Date());
+let currentRemoteMonth = { year: new Date().getFullYear(), month: new Date().getMonth()+1 };
+
+let editingId = null;
+let editingType = null;
+
+// Chart instances
+let chartInstances = {};
+function destroyChart(id) {
+  if(chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; }
+}
+
+// ==================== 导航 ====================
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  event.target.classList.add('active');
+
+  if(page==='dashboard') renderDashboard();
+  if(page==='local') { initLocalDatePicker(); renderLocalView(); }
+  if(page==='remote') { initRemoteDatePicker(); renderRemoteView(); }
+  if(page==='jobs') { renderJobList(); }
+  if(page==='entry') { initEntryDatePickers(); }
+}
+
+// ==================== 子Tab ====================
+function localView(view, btn) {
+  document.querySelectorAll('#page-local .sub-tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  ['day','week','month'].forEach(v => document.getElementById('local-'+v).style.display = v===view?'block':'none');
+  renderLocalView(view);
+}
+function remoteView(view, btn) {
+  document.querySelectorAll('#page-remote .sub-tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  ['day','week','month'].forEach(v => document.getElementById('remote-'+v).style.display = v===view?'block':'none');
+  renderRemoteView(view);
+}
+function entryView(view, btn) {
+  document.querySelectorAll('#page-entry .sub-tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('entry-local').style.display = view==='local'?'block':'none';
+  document.getElementById('entry-remote').style.display = view==='remote'?'block':'none';
+}
+
+// ==================== flatpickr 初始化 ====================
+let lpicker, rpicker, lEntryPicker, rEntryPicker;
+
+function initLocalDatePicker() {
+  if(!lpicker) lpicker = flatpickr('#local-day-picker', { defaultDate: currentLocalDate, locale:'zh', onChange: d => { currentLocalDate = dateStr(d[0]); showLocalDayData(); } });
+  lpicker.setDate(currentLocalDate);
+}
+function initRemoteDatePicker() {
+  if(!rpicker) rpicker = flatpickr('#remote-day-picker', { defaultDate: currentRemoteDate, locale:'zh', onChange: d => { currentRemoteDate = dateStr(d[0]); showRemoteDayData(); } });
+  rpicker.setDate(currentRemoteDate);
+}
+function initEntryDatePickers() {
+  if(!lEntryPicker) lEntryPicker = flatpickr('#l-date', { defaultDate: today(), locale:'zh', onChange: d => {} });
+  if(!rEntryPicker) rEntryPicker = flatpickr('#r-date', { defaultDate: today(), locale:'zh', onChange: d => {} });
+}
+
+// ==================== 日期导航 ====================
+function localDayNav(delta) {
+  const d = parseDate(currentLocalDate); d.setDate(d.getDate()+delta);
+  currentLocalDate = dateStr(d); lpicker && lpicker.setDate(currentLocalDate);
+  showLocalDayData();
+}
+function localWeekNav(delta) {
+  currentLocalWeekStart = new Date(currentLocalWeekStart);
+  currentLocalWeekStart.setDate(currentLocalWeekStart.getDate() + delta*7);
+  renderLocalWeek();
+}
+function localMonthNav(delta) {
+  currentLocalMonth.month += delta;
+  if(currentLocalMonth.month > 12) { currentLocalMonth.month=1; currentLocalMonth.year++; }
+  if(currentLocalMonth.month < 1)  { currentLocalMonth.month=12; currentLocalMonth.year--; }
+  renderLocalMonth();
+}
+function remoteDayNav(delta) {
+  const d = parseDate(currentRemoteDate); d.setDate(d.getDate()+delta);
+  currentRemoteDate = dateStr(d); rpicker && rpicker.setDate(currentRemoteDate);
+  showRemoteDayData();
+}
+function remoteWeekNav(delta) {
+  currentRemoteWeekStart = new Date(currentRemoteWeekStart);
+  currentRemoteWeekStart.setDate(currentRemoteWeekStart.getDate() + delta*7);
+  renderRemoteWeek();
+}
+function remoteMonthNav(delta) {
+  currentRemoteMonth.month += delta;
+  if(currentRemoteMonth.month > 12) { currentRemoteMonth.month=1; currentRemoteMonth.year++; }
+  if(currentRemoteMonth.month < 1)  { currentRemoteMonth.month=12; currentRemoteMonth.year--; }
+  renderRemoteMonth();
+}
+
+// ==================== 聚合工具 ====================
+function sumField(arr, field) { return arr.reduce((s,r) => s+(+r[field]||0), 0); }
+function sumDetailQty(detailArr) { return (detailArr||[]).reduce((s,d)=>s+(+d.qty||0),0); }
+function aggregateJobs(records, detailField) {
+  const map = {};
+  records.forEach(r => {
+    (r[detailField]||[]).forEach(d => {
+      if(d.name) map[d.name] = (map[d.name]||0) + (+d.qty||0);
+    });
+  });
+  return Object.entries(map).sort((a,b)=>b[1]-a[1]);
+}
+
+// ==================== Dashboard 渲染 ====================
+function renderDashboard() {
+  renderAlerts();
+  const localRecs = getData(LS_LOCAL);
+  const remoteRecs = getData(LS_REMOTE);
+
+  // 本周范围
+  const weekDates = getWeekDates(getMondayOfWeek(new Date()));
+  const weekLocal = localRecs.filter(r => weekDates.includes(r.date));
+  const weekRemote = remoteRecs.filter(r => weekDates.includes(r.date));
+
+  // 本月范围
+  const now = new Date();
+  const monthDates = getMonthDates(now.getFullYear(), now.getMonth()+1);
+  const monthLocal = localRecs.filter(r => monthDates.includes(r.date));
+  const monthRemote = remoteRecs.filter(r => monthDates.includes(r.date));
+
+  const allWeek = [...weekLocal, ...weekRemote];
+  const allMonth = [...monthLocal, ...monthRemote];
+
+  // KPI 卡片
+  const kpiEl = document.getElementById('dash-kpi');
+  const kpis = [
+    {label:'本周 简历收取',val: sumField(weekLocal,'cvTotal')+sumField(weekRemote,'cvTotal'), sub:'本月 '+(sumField(monthLocal,'cvTotal')+sumField(monthRemote,'cvTotal')), cls:'c1'},
+    {label:'本周 推荐数',val: sumField(weekLocal,'recommendTotal')+sumField(weekRemote,'recommendTotal'), sub:'本月 '+(sumField(monthLocal,'recommendTotal')+sumField(monthRemote,'recommendTotal')), cls:'c2'},
+    {label:'本周 总面试数',val: sumField(weekLocal,'int1Total')+sumField(weekLocal,'int2Total')+sumField(weekRemote,'interviewTotal'), sub:'本月 '+(sumField(monthLocal,'int1Total')+sumField(monthLocal,'int2Total')+sumField(monthRemote,'interviewTotal')), cls:'c3'},
+    {label:'本周 Offer 数',val: sumField(weekLocal,'offer')+sumField(weekRemote,'offer'), sub:'本月 '+(sumField(monthLocal,'offer')+sumField(monthRemote,'offer')), cls:'c4'},
+    {label:'本周 入职数',val: sumField(weekLocal,'onboard')+sumField(weekRemote,'onboard'), sub:'本月 '+(sumField(monthLocal,'onboard')+sumField(monthRemote,'onboard')), cls:'c5'},
+  ];
+  kpiEl.innerHTML = kpis.map(k=>`
+    <div class="kpi-card ${k.cls}">
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value">${k.val}</div>
+      <div class="kpi-sub">${k.sub}</div>
+    </div>`).join('');
+
+  // 地区对比柱状图（本周）
+  renderRegionBar(weekLocal, weekRemote);
+
+  // 漏斗图（本月）
+  renderFunnel(monthLocal, monthRemote);
+
+  // 本周趋势
+  renderWeekTrend(weekDates, weekLocal, weekRemote);
+
+  // 岗位饼图
+  renderJobPie(monthLocal, monthRemote);
+}
+
+function renderRegionBar(weekLocal, weekRemote) {
+  destroyChart('chart-region-bar');
+  const labels = ['简历','推荐','面试','Offer','入职'];
+  const datasets = [
+    { label:'英国', backgroundColor: CHART_COLORS[1],
+      data:[sumField(weekLocal,'cvTotal'),sumField(weekLocal,'recommendTotal'),sumField(weekLocal,'int1Total')+sumField(weekLocal,'int2Total'),sumField(weekLocal,'offer'),sumField(weekLocal,'onboard')] },
+    { label:'远程', backgroundColor: CHART_COLORS[4],
+      data:[sumField(weekRemote,'cvTotal'),sumField(weekRemote,'recommendTotal'),sumField(weekRemote,'interviewTotal'),sumField(weekRemote,'offer'),sumField(weekRemote,'onboard')] },
+  ];
+
+  const ctx = document.getElementById('chart-region-bar').getContext('2d');
+  chartInstances['chart-region-bar'] = new Chart(ctx, {
+    type:'bar', data:{ labels, datasets },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{color:'#9ba3c7'}}},
+      scales:{ x:{ticks:{color:'#9ba3c7'},grid:{color:'#2e3248'}}, y:{ticks:{color:'#9ba3c7'},grid:{color:'#2e3248'}} } }
+  });
+}
+
+function renderFunnel(monthLocal, monthRemote) {
+  const allMonth = [...monthLocal, ...monthRemote];
+  const steps = [
+    { label:'简历收取', val: sumField(monthLocal,'cvTotal')+sumField(monthRemote,'cvTotal'), color:'#6c63ff' },
+    { label:'初筛沟通', val: sumField(monthLocal,'screenNew')+sumField(monthRemote,'screenNew'), color:'#00c6ff' },
+    { label:'推荐人数', val: sumField(monthLocal,'recommendTotal')+sumField(monthRemote,'recommendTotal'), color:'#a78bfa' },
+    { label:'总面试', val: sumField(monthLocal,'int1Total')+sumField(monthLocal,'int2Total')+sumField(monthRemote,'interviewTotal'), color:'#ffd93d' },
+    { label:'Offer', val: sumField(monthLocal,'offer')+sumField(monthRemote,'offer'), color:'#f97316' },
+    { label:'入职', val: sumField(monthLocal,'onboard')+sumField(monthRemote,'onboard'), color:'#6bcb77' },
+  ];
+  const maxVal = steps[0].val || 1;
+  document.getElementById('dash-funnel').innerHTML = steps.map(s=>`
+    <div class="funnel-bar">
+      <div class="funnel-label">${s.label}</div>
+      <div class="funnel-track">
+        <div class="funnel-fill" style="width:${Math.round(s.val/maxVal*100)}%;background:${s.color}">${s.val>0?s.val:''}</div>
+      </div>
+      <div class="funnel-num">${s.val}</div>
+    </div>`).join('');
+}
+
+function renderWeekTrend(weekDates, weekLocal, weekRemote) {
+  destroyChart('chart-week-trend');
+  const labels = weekDates.map(d=>d.slice(5));
+  const cvData = weekDates.map(d => sumField(weekLocal.filter(r=>r.date===d),'cvTotal') + sumField(weekRemote.filter(r=>r.date===d),'cvTotal'));
+  const recData = weekDates.map(d => sumField(weekLocal.filter(r=>r.date===d),'recommendTotal') + sumField(weekRemote.filter(r=>r.date===d),'recommendTotal'));
+  const intData = weekDates.map(d => {
+    const l = weekLocal.filter(r=>r.date===d);
+    const r = weekRemote.filter(r=>r.date===d);
+    return sumField(l,'int1Total')+sumField(l,'int2Total')+sumField(r,'interviewTotal');
+  });
+
+  const ctx = document.getElementById('chart-week-trend').getContext('2d');
+  chartInstances['chart-week-trend'] = new Chart(ctx, {
+    type:'line',
+    data:{ labels, datasets:[
+      {label:'简历',data:cvData,borderColor:CHART_COLORS[0],backgroundColor:CHART_COLORS[0]+'33',tension:.3,fill:true},
+      {label:'推荐',data:recData,borderColor:CHART_COLORS[1],backgroundColor:CHART_COLORS[1]+'33',tension:.3,fill:true},
+      {label:'面试',data:intData,borderColor:CHART_COLORS[3],backgroundColor:CHART_COLORS[3]+'33',tension:.3,fill:true},
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{color:'#9ba3c7'}}},
+      scales:{ x:{ticks:{color:'#9ba3c7'},grid:{color:'#2e3248'}}, y:{ticks:{color:'#9ba3c7'},grid:{color:'#2e3248'},beginAtZero:true} } }
+  });
+}
+
+function renderJobPie(monthLocal, monthRemote) {
+  destroyChart('chart-job-pie');
+  const jobs = aggregateJobs([...monthLocal,...monthRemote],'recommendDetail').slice(0,10);
+  if(!jobs.length) return;
+
+  const ctx = document.getElementById('chart-job-pie').getContext('2d');
+  chartInstances['chart-job-pie'] = new Chart(ctx, {
+    type:'doughnut',
+    data:{ labels:jobs.map(j=>j[0].length>12?j[0].slice(0,12)+'…':j[0]), datasets:[{data:jobs.map(j=>j[1]),backgroundColor:CHART_COLORS}] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{color:'#9ba3c7',font:{size:11}}}} }
+  });
+}
+
+// ==================== 本地日视图 ====================
+function renderLocalView(view='day') {
+  const activeTab = document.querySelector('#page-local .sub-tab.active');
+  if(activeTab) view = activeTab.textContent==='日视图'?'day':activeTab.textContent==='周视图'?'week':'month';
+  if(view==='day') showLocalDayData();
+  if(view==='week') renderLocalWeek();
+  if(view==='month') renderLocalMonth();
+}
+
+function showLocalDayData() {
+  const recs = getData(LS_LOCAL).filter(r=>r.date===currentLocalDate);
+  const el = document.getElementById('local-day-content');
+  if(!recs.length) { el.innerHTML=`<div class="empty-state"><div class="icon">📋</div><p>${currentLocalDate} 暂无数据，请前往"数据录入"添加记录</p></div>`; return; }
+  el.innerHTML = recs.map(r=>renderLocalCard(r)).join('');
+}
+
+function renderLocalCard(r) {
+  const recDetail = (r.recommendDetail||[]).map(d=>`<li>${d.name}：${d.qty} 人</li>`).join('');
+  const cvDetail = (r.cvDetail||[]).map(d=>`<li>${d.name}：${d.qty} 份</li>`).join('');
+  const int1Det = (r.int1Detail||[]).map(d=>`<li>${d.name} - ${d.person}</li>`).join('');
+  const int2Det = (r.int2Detail||[]).map(d=>`<li>${d.name} - ${d.person}</li>`).join('');
+  const proactiveDet = (r.proactiveDetail||[]).map(d=>`<li>${d.name}：${d.qty}</li>`).join('');
+  return `
+  <div class="data-card" id="card-${r.id}">
+    <div class="data-card-header">
+      <div class="data-card-title">
+        <span class="tag tag-uk">英国</span>
+        &nbsp;${r.date} ${r.recorder?`<span class="text-muted text-sm">录入：${r.recorder}</span>`:''}
+      </div>
+      <div class="data-card-actions">
+        <button class="btn btn-secondary btn-sm" onclick="editRecord('${r.id}','local')">编辑</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteRecord('${r.id}','local')">删除</button>
+      </div>
+    </div>
+    <div class="data-card-grid">
+      <div class="data-field"><div class="data-field-label">新收简历</div><div class="data-field-value">${r.cvTotal}</div>${cvDetail?`<div class="data-field-sub"><ul class="detail-list">${cvDetail}</ul></div>`:''}</div>
+      <div class="data-field"><div class="data-field-label">新增初筛</div><div class="data-field-value">${r.screenNew||0}</div><div class="data-field-sub">在沟通 ${r.screenOngoing||0}</div></div>
+      <div class="data-field"><div class="data-field-label">推荐总数</div><div class="data-field-value">${r.recommendTotal||0}</div>${recDetail?`<div class="data-field-sub"><ul class="detail-list">${recDetail}</ul></div>`:''}</div>
+      <div class="data-field"><div class="data-field-label">主动获取推荐</div><div class="data-field-value">${r.proactiveTotal||0}</div>${proactiveDet?`<div class="data-field-sub"><ul class="detail-list">${proactiveDet}</ul></div>`:''}</div>
+      <div class="data-field"><div class="data-field-label">一面</div><div class="data-field-value">${r.int1Total||0}</div>${int1Det?`<div class="data-field-sub"><ul class="detail-list">${int1Det}</ul></div>`:''}</div>
+      <div class="data-field"><div class="data-field-label">二面</div><div class="data-field-value">${r.int2Total||0}</div>${int2Det?`<div class="data-field-sub"><ul class="detail-list">${int2Det}</ul></div>`:''}</div>
+      <div class="data-field"><div class="data-field-label">Offer</div><div class="data-field-value">${r.offer||0}</div></div>
+      <div class="data-field"><div class="data-field-label">入职</div><div class="data-field-value">${r.onboard||0}</div></div>
+    </div>
+    ${r.remark?`<div class="mt-8 text-sm text-muted">备注：${r.remark}</div>`:''}
+  </div>`;
+}
+
+// ==================== 本地周视图 ====================
+function renderLocalWeek() {
+  const dates = getWeekDates(currentLocalWeekStart);
+  document.getElementById('local-week-label').textContent = formatWeekLabel(currentLocalWeekStart);
+
+  const recs = getData(LS_LOCAL).filter(r=>dates.includes(r.date));
+
+  // KPI
+  const kpis = [
+    {label:'总简历',val:sumField(recs,'cvTotal'),cls:'c1'},
+    {label:'总推荐',val:sumField(recs,'recommendTotal'),cls:'c2'},
+    {label:'总一面',val:sumField(recs,'int1Total'),cls:'c3'},
+    {label:'总二面',val:sumField(recs,'int2Total'),cls:'c4'},
+    {label:'Offer/入职',val:`${sumField(recs,'offer')}/${sumField(recs,'onboard')}`,cls:'c5'},
+  ];
+  document.getElementById('local-week-kpi').innerHTML = kpis.map(k=>`<div class="kpi-card ${k.cls}"><div class="kpi-label">${k.label}</div><div class="kpi-value">${k.val}</div></div>`).join('');
+
+  // 趋势图
+  destroyChart('chart-local-week-trend');
+  const ctx1 = document.getElementById('chart-local-week-trend').getContext('2d');
+  chartInstances['chart-local-week-trend'] = new Chart(ctx1, {
+    type:'line',
+    data:{ labels:dates.map(d=>d.slice(5)),
+      datasets:[
+        {label:'简历',data:dates.map(d=>sumField(recs.filter(r=>r.date===d),'cvTotal')),borderColor:CHART_COLORS[0],tension:.3},
+        {label:'推荐',data:dates.map(d=>sumField(recs.filter(r=>r.date===d),'recommendTotal')),borderColor:CHART_COLORS[1],tension:.3},
+        {label:'面试',data:dates.map(d=>sumField(recs.filter(r=>r.date===d),'int1Total')+sumField(recs.filter(r=>r.date===d),'int2Total')),borderColor:CHART_COLORS[3],tension:.3},
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{color:'#9ba3c7'}}},
+      scales:{ x:{ticks:{color:'#9ba3c7'},grid:{color:'#2e3248'}}, y:{ticks:{color:'#9ba3c7'},grid:{color:'#2e3248'},beginAtZero:true} } }
+  });
+
+  // 岗位排名
+  destroyChart('chart-local-week-jobs');
+  const jobs = aggregateJobs(recs,'recommendDetail').slice(0,10);
+  const ctx2 = document.getElementById('chart-local-week-jobs').getContext('2d');
+  chartInstances['chart-local-week-jobs'] = new Chart(ctx2, {
+    type:'bar',
+    data:{ labels:jobs.map(j=>j[0].length>15?j[0].slice(0,15)+'…':j[0]), datasets:[{label:'推荐数',data:jobs.map(j=>j[1]),backgroundColor:CHART_COLORS}] },
+    options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+      scales:{ x:{ticks:{color:'#9ba3c7'},grid:{color:'#2e3248'}}, y:{ticks:{color:'#9ba3c7',font:{size:11}},grid:{color:'#2e3248'}} } }
+  });
+
+  // 明细表格
+  document.getElementById('local-week-table').innerHTML = renderLocalTable(recs.sort((a,b)=>a.date.localeCompare(b.date)));
+}
+
+// ==================== 本地月视图 ====================
+function renderLocalMonth() {
+  const {year,month} = currentLocalMonth;
+  document.getElementById('local-month-label').textContent = `${year} 年 ${month} 月`;
+  const dates = getMonthDates(year, month);
+  const recs = getData(LS_LOCAL).filter(r=>dates.includes(r.date));
+
+  // KPI
+  document.getElementById('local-month-kpi').innerHTML = [
+    {label:'总简历',val:sumField(recs,'cvTotal'),cls:'c1'},
+    {label:'总推荐',val:sumField(recs,'recommendTotal'),cls:'c2'},
+    {label:'总面试',val:sumField(recs,'int1Total')+sumField(recs,'int2Total'),cls:'c3'},
+    {label:'Offer',val:sumField(recs,'offer'),cls:'c4'},
+    {label:'入职',val:sumField(recs,'onboard'),cls:'c5'},
+  ].map(k=>`<div class="kpi-card ${k.cls}"><div class="kpi-label">${k.label}</div><div class="kpi-value">${k.val}</div></div>`).join('');
+
+  // 月趋势
+  destroyChart('chart-local-month-trend');
+  const ctx1 = document.getElementById('chart-local-month-trend').getContext('2d');
+  chartInstances['chart-local-month-trend'] = new Chart(ctx1, {
+    type:'line',
+    data:{ labels:dates.map(d=>d.slice(8)),
+      datasets:[
+        {label:'简历',data:dates.map(d=>sumField(recs.filter(r=>r.date===d),'cvTotal')),borderColor:CHART_COLORS[0],tension:.3,pointRadius:2},
+        {label:'推荐',data:dates.map(d=>sumField(recs.filter(r=>r.date===d),'recommendTotal')),borderColor:CHART_COLORS[1],tension:.3,pointRadius:2},
+      ]},
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{color:'#9ba3c7'}}},
+      scales:{ x:{ticks:{color:'#9ba3c7',maxTicksLimit:15},grid:{color:'#2e3248'}}, y:{ticks:{color:'#9ba3c7'},grid:{color:'#2e3248'},beginAtZero:true} } }
+  });
+
+  // 岗位饼图
+  destroyChart('chart-local-month-pie');
+  const jobs = aggregateJobs(recs,'recommendDetail').slice(0,10);
+  if(jobs.length) {
+    const ctx2 = document.getElementById('chart-local-month-pie').getContext('2d');
+    chartInstances['chart-local-month-pie'] = new Chart(ctx2, {
+      type:'doughnut',
+      data:{ labels:jobs.map(j=>j[0].length>12?j[0].slice(0,12)+'…':j[0]), datasets:[{data:jobs.map(j=>j[1]),backgroundColor:CHART_COLORS}] },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{color:'#9ba3c7',font:{size:11}}}} }
+    });
+  }
+
+  // 明细表格
+  document.getElementById('local-month-table').innerHTML = renderLocalTableFull(recs.sort((a,b)=>a.date.localeCompare(b.date)));
+}
+
+function renderLocalTable(recs) {
+  if(!recs.length) return '<div class="empty-state"><p>本周暂无数据</p></div>';
+  return `<div class="table-wrap"><table>
+    <thead><tr><th>日期</th><th>地区</th><th>简历</th><th>初筛</th><th>推荐</th><th>一面</th><th>二面</th><th>Offer</th><th>入职</th><th>录入人</th><th>操作</th></tr></thead>
+    <tbody>${recs.map(r=>`<tr>
+      <td>${r.date}</td>
+      <td><span class="tag tag-uk">英国</span></td>
+      <td>${r.cvTotal}</td><td>${r.screenNew||0}</td><td>${r.recommendTotal||0}</td>
+      <td>${r.int1Total||0}</td><td>${r.int2Total||0}</td><td>${r.offer||0}</td><td>${r.onboard||0}</td>
+      <td>${r.recorder||'-'}</td>
+      <td><button class="btn btn-secondary btn-sm" onclick="editRecord('${r.id}','local')">编辑</button> <button class="btn btn-danger btn-sm" onclick="deleteRecord('${r.id}','local')">删除</button></td>
+    </tr>`).join('')}</tbody>
+  </table></div>`;
+}
+function renderLocalTableFull(recs) { return renderLocalTable(recs); }
+
+// ==================== 远程日视图 ====================
+function renderRemoteView(view='day') {
+  const activeTab = document.querySelector('#page-remote .sub-tab.active');
+  if(activeTab) view = activeTab.textContent==='日视图'?'day':activeTab.textContent==='周视图'?'week':'month';
+  if(view==='day') showRemoteDayData();
+  if(view==='week') renderRemoteWeek();
+  if(view==='month') renderRemoteMonth();
+}
+
+function showRemoteDayData() {
+  const recs = getData(LS_REMOTE).filter(r=>r.date===currentRemoteDate);
+  const el = document.getElementById('remote-day-content');
+  if(!recs.length) { el.innerHTML=`<div class="empty-state"><div class="icon">📋</div><p>${currentRemoteDate} 暂无远程招聘数据</p></div>`; return; }
+  el.innerHTML = recs.map(r=>renderRemoteCard(r)).join('');
+}
+
+function renderRemoteCard(r) {
+  const recDetail = (r.recommendDetail||[]).map(d=>`<li>${d.name}：${d.qty} 人</li>`).join('');
+  const intDetail = (r.interviewDetail||[]).map(d=>`<li>${d.name} - ${d.person}</li>`).join('');
+  const onboardDetail = (r.onboardDetail||[]).map(d=>`<li>${d.name}：${d.qty}</li>`).join('');
+  return `
+  <div class="data-card" id="card-${r.id}">
+    <div class="data-card-header">
+      <div class="data-card-title">
+        <span class="tag tag-remote">远程</span>
+        &nbsp;<strong>${r.name}</strong> &nbsp;
+        <span class="text-muted text-sm">${r.date}</span>
+      </div>
+      <div class="data-card-actions">
+        <button class="btn btn-secondary btn-sm" onclick="editRecord('${r.id}','remote')">编辑</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteRecord('${r.id}','remote')">删除</button>
+      </div>
+    </div>
+    <div class="data-card-grid">
+      <div class="data-field"><div class="data-field-label">新收简历</div><div class="data-field-value">${r.cvTotal||0}</div></div>
+      <div class="data-field"><div class="data-field-label">新增初筛</div><div class="data-field-value">${r.screenNew||0}</div></div>
+      <div class="data-field"><div class="data-field-label">推荐总数</div><div class="data-field-value">${r.recommendTotal||0}</div>${recDetail?`<div class="data-field-sub"><ul class="detail-list">${recDetail}</ul></div>`:''}</div>
+      <div class="data-field"><div class="data-field-label">约面/当日面试</div><div class="data-field-value">${r.scheduledInt||0}/${r.interviewTotal||0}</div>${intDetail?`<div class="data-field-sub"><ul class="detail-list">${intDetail}</ul></div>`:''}</div>
+      <div class="data-field"><div class="data-field-label">Offer 申请</div><div class="data-field-value">${r.offer||0}</div></div>
+      <div class="data-field"><div class="data-field-label">入职</div><div class="data-field-value">${r.onboard||0}</div>${onboardDetail?`<div class="data-field-sub"><ul class="detail-list">${onboardDetail}</ul></div>`:''}</div>
+    </div>
+    ${r.remark?`<div class="mt-8 text-sm text-muted">备注：${r.remark}</div>`:''}
+  </div>`;
+}
+
+// ==================== 远程周视图 ====================
+function renderRemoteWeek() {
+  const dates = getWeekDates(currentRemoteWeekStart);
+  document.getElementById('remote-week-label').textContent = formatWeekLabel(currentRemoteWeekStart);
+  const recs = getData(LS_REMOTE).filter(r=>dates.includes(r.date));
+
+  document.getElementById('remote-week-kpi').innerHTML = [
+    {label:'总简历',val:sumField(recs,'cvTotal'),cls:'c1'},
+    {label:'总推荐',val:sumField(recs,'recommendTotal'),cls:'c2'},
+    {label:'总面试',val:sumField(recs,'interviewTotal'),cls:'c3'},
+    {label:'Offer申请',val:sumField(recs,'offer'),cls:'c4'},
+    {label:'入职',val:sumField(recs,'onboard'),cls:'c5'},
+  ].map(k=>`<div class="kpi-card ${k.cls}"><div class="kpi-label">${k.label}</div><div class="kpi-value">${k.val}</div></div>`).join('');
+
+  // 趋势图
+  destroyChart('chart-remote-week-trend');
+  const ctx1 = document.getElementById('chart-remote-week-trend').getContext('2d');
+  chartInstances['chart-remote-week-trend'] = new Chart(ctx1, {
+    type:'line',
+    data:{ labels:dates.map(d=>d.slice(5)),
+      datasets:[
+        {label:'简历',data:dates.map(d=>sumField(recs.filter(r=>r.date===d),'cvTotal')),borderColor:CHART_COLORS[0],tension:.3},
+        {label:'推荐',data:dates.map(d=>sumField(recs.filter(r=>r.date===d),'recommendTotal')),borderColor:CHART_COLORS[1],tension:.3},
+        {label:'面试',data:dates.map(d=>sumField(recs.filter(r=>r.date===d),'interviewTotal')),borderColor:CHART_COLORS[3],tension:.3},
+      ]},
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{color:'#9ba3c7'}}},
+      scales:{ x:{ticks:{color:'#9ba3c7'},grid:{color:'#2e3248'}}, y:{ticks:{color:'#9ba3c7'},grid:{color:'#2e3248'},beginAtZero:true} } }
+  });
+
+  // 专员排行
+  destroyChart('chart-remote-week-rank');
+  const memberStats = {};
+  recs.forEach(r => {
+    if(!memberStats[r.name]) memberStats[r.name] = {cv:0,rec:0,int:0};
+    memberStats[r.name].cv += +r.cvTotal||0;
+    memberStats[r.name].rec += +r.recommendTotal||0;
+    memberStats[r.name].int += +r.interviewTotal||0;
+  });
+  const members = Object.keys(memberStats).sort((a,b)=>memberStats[b].rec-memberStats[a].rec);
+
+  const ctx2 = document.getElementById('chart-remote-week-rank').getContext('2d');
+  chartInstances['chart-remote-week-rank'] = new Chart(ctx2, {
+    type:'bar',
+    data:{ labels:members,
+      datasets:[
+        {label:'推荐数',data:members.map(m=>memberStats[m].rec),backgroundColor:CHART_COLORS[0]},
+        {label:'面试数',data:members.map(m=>memberStats[m].int),backgroundColor:CHART_COLORS[3]},
+      ]},
+    options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{color:'#9ba3c7'}}},
+      scales:{ x:{ticks:{color:'#9ba3c7'},grid:{color:'#2e3248'}}, y:{ticks:{color:'#9ba3c7'},grid:{color:'#2e3248'}} } }
+  });
+
+  // 专员周度汇总表
+  document.getElementById('remote-week-table').innerHTML = members.length ? `<div class="table-wrap"><table>
+    <thead><tr><th>专员</th><th>简历</th><th>初筛</th><th>推荐</th><th>面试</th><th>Offer</th><th>入职</th></tr></thead>
+    <tbody>${members.map(m=>{
+      const mr = recs.filter(r=>r.name===m);
+      return `<tr><td><strong>${m}</strong></td><td>${sumField(mr,'cvTotal')}</td><td>${sumField(mr,'screenNew')}</td><td>${sumField(mr,'recommendTotal')}</td><td>${sumField(mr,'interviewTotal')}</td><td>${sumField(mr,'offer')}</td><td>${sumField(mr,'onboard')}</td></tr>`;
+    }).join('')}</tbody>
+  </table></div>` : '<div class="empty-state"><p>本周暂无数据</p></div>';
+}
+
+// ==================== 远程月视图 ====================
+function renderRemoteMonth() {
+  const {year,month} = currentRemoteMonth;
+  document.getElementById('remote-month-label').textContent = `${year} 年 ${month} 月`;
+  const dates = getMonthDates(year, month);
+  const recs = getData(LS_REMOTE).filter(r=>dates.includes(r.date));
+
+  document.getElementById('remote-month-kpi').innerHTML = [
+    {label:'总简历',val:sumField(recs,'cvTotal'),cls:'c1'},
+    {label:'总推荐',val:sumField(recs,'recommendTotal'),cls:'c2'},
+    {label:'总面试',val:sumField(recs,'interviewTotal'),cls:'c3'},
+    {label:'Offer申请',val:sumField(recs,'offer'),cls:'c4'},
+    {label:'入职',val:sumField(recs,'onboard'),cls:'c5'},
+  ].map(k=>`<div class="kpi-card ${k.cls}"><div class="kpi-label">${k.label}</div><div class="kpi-value">${k.val}</div></div>`).join('');
+
+  // 月趋势
+  destroyChart('chart-remote-month-trend');
+  const ctx1 = document.getElementById('chart-remote-month-trend').getContext('2d');
+  chartInstances['chart-remote-month-trend'] = new Chart(ctx1, {
+    type:'line',
+    data:{ labels:dates.map(d=>d.slice(8)),
+      datasets:[
+        {label:'简历',data:dates.map(d=>sumField(recs.filter(r=>r.date===d),'cvTotal')),borderColor:CHART_COLORS[0],tension:.3,pointRadius:2},
+        {label:'推荐',data:dates.map(d=>sumField(recs.filter(r=>r.date===d),'recommendTotal')),borderColor:CHART_COLORS[1],tension:.3,pointRadius:2},
+        {label:'面试',data:dates.map(d=>sumField(recs.filter(r=>r.date===d),'interviewTotal')),borderColor:CHART_COLORS[3],tension:.3,pointRadius:2},
+        {label:'入职',data:dates.map(d=>sumField(recs.filter(r=>r.date===d),'onboard')),borderColor:CHART_COLORS[4],tension:.3,pointRadius:2},
+      ]},
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{color:'#9ba3c7'}}},
+      scales:{ x:{ticks:{color:'#9ba3c7',maxTicksLimit:15},grid:{color:'#2e3248'}}, y:{ticks:{color:'#9ba3c7'},grid:{color:'#2e3248'},beginAtZero:true} } }
+  });
+
+  // 岗位热度饼图
+  destroyChart('chart-remote-month-pie');
+  const jobs = aggregateJobs(recs,'recommendDetail').slice(0,10);
+  if(jobs.length) {
+    const ctx2 = document.getElementById('chart-remote-month-pie').getContext('2d');
+    chartInstances['chart-remote-month-pie'] = new Chart(ctx2, {
+      type:'doughnut',
+      data:{ labels:jobs.map(j=>j[0].length>12?j[0].slice(0,12)+'…':j[0]), datasets:[{data:jobs.map(j=>j[1]),backgroundColor:CHART_COLORS}] },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{color:'#9ba3c7',font:{size:11}}}} }
+    });
+  }
+
+  // 专员月度绩效排行
+  const memberStats = {};
+  recs.forEach(r => {
+    if(!memberStats[r.name]) memberStats[r.name] = {cv:0,screen:0,rec:0,int:0,offer:0,onboard:0};
+    memberStats[r.name].cv += +r.cvTotal||0;
+    memberStats[r.name].screen += +r.screenNew||0;
+    memberStats[r.name].rec += +r.recommendTotal||0;
+    memberStats[r.name].int += +r.interviewTotal||0;
+    memberStats[r.name].offer += +r.offer||0;
+    memberStats[r.name].onboard += +r.onboard||0;
+  });
+  const members = Object.keys(memberStats).sort((a,b)=>memberStats[b].rec-memberStats[a].rec);
+
+  document.getElementById('remote-month-table').innerHTML = members.length ? `<div class="table-wrap"><table>
+    <thead><tr><th>排名</th><th>专员</th><th>简历</th><th>初筛</th><th>推荐</th><th>面试</th><th>Offer</th><th>入职</th></tr></thead>
+    <tbody>${members.map((m,i)=>`<tr>
+      <td><span class="badge">#${i+1}</span></td><td><strong>${m}</strong></td>
+      <td>${memberStats[m].cv}</td><td>${memberStats[m].screen}</td><td>${memberStats[m].rec}</td>
+      <td>${memberStats[m].int}</td><td>${memberStats[m].offer}</td><td>${memberStats[m].onboard}</td>
+    </tr>`).join('')}</tbody>
+  </table></div>` : '<div class="empty-state"><p>本月暂无数据</p></div>';
+}
+
+// ==================== 动态行（旧版已由下方新版替代）====================
+
+// ==================== 表单提交 ====================
+function submitLocal(e) {
+  e.preventDefault();
+  const date = document.getElementById('l-date').value;
+  if(!date) { showToast('请选择日期','error'); return; }
+
+  const record = {
+    id: `local_${date}_${document.getElementById('l-region').value}_${Date.now()}`,
+    date,
+    region: document.getElementById('l-region').value,
+    cvTotal: +document.getElementById('l-cv-total').value||0,
+    cvDetail: getRows('l-cv-detail'),
+    screenNew: +document.getElementById('l-screen-new').value||0,
+    screenOngoing: +document.getElementById('l-screen-ongoing').value||0,
+    recommendTotal: +document.getElementById('l-recommend-total').value||0,
+    recommendDetail: getRows('l-recommend-detail'),
+    proactiveTotal: +document.getElementById('l-proactive-total').value||0,
+    proactiveDetail: getRows('l-proactive-detail'),
+    int1Total: +document.getElementById('l-int1-total').value||0,
+    int1Detail: getRows('l-int1-detail'),
+    int2Total: +document.getElementById('l-int2-total').value||0,
+    int2Detail: getRows('l-int2-detail'),
+    offer: +document.getElementById('l-offer').value||0,
+    onboard: +document.getElementById('l-onboard').value||0,
+    recorder: document.getElementById('l-recorder').value,
+    remark: document.getElementById('l-remark').value,
+  };
+
+  const data = getData(LS_LOCAL);
+  data.push(record);
+  saveData(LS_LOCAL, data);
+  showToast('✓ 英国招聘数据录入成功！');
+  resetLocalForm();
+}
+
+function submitRemote(e) {
+  e.preventDefault();
+  const date = document.getElementById('r-date').value;
+  const name = document.getElementById('r-name').value;
+  if(!date||!name) { showToast('请填写日期和专员姓名','error'); return; }
+
+  const record = {
+    id: `remote_${date}_${name}_${Date.now()}`,
+    date, name,
+    cvTotal: +document.getElementById('r-cv').value||0,
+    screenNew: +document.getElementById('r-screen').value||0,
+    recommendTotal: +document.getElementById('r-recommend-total').value||0,
+    recommendDetail: getRows('r-recommend-detail'),
+    scheduledInt: +document.getElementById('r-scheduled').value||0,
+    interviewTotal: +document.getElementById('r-interview').value||0,
+    interviewDetail: getRows('r-interview-detail'),
+    offer: +document.getElementById('r-offer').value||0,
+    onboard: +document.getElementById('r-onboard').value||0,
+    onboardDetail: getRows('r-onboard-detail'),
+    remark: document.getElementById('r-remark').value,
+  };
+
+  const data = getData(LS_REMOTE);
+  data.push(record);
+  saveData(LS_REMOTE, data);
+  showToast('✓ 远程数据录入成功！');
+  resetRemoteForm();
+}
+
+function resetLocalForm() {
+  document.getElementById('form-local').reset();
+  ['l-cv-detail','l-recommend-detail','l-proactive-detail','l-int1-detail','l-int2-detail'].forEach(id => {
+    document.getElementById(id).innerHTML='';
+  });
+  lEntryPicker && lEntryPicker.setDate(today());
+}
+
+function resetRemoteForm() {
+  document.getElementById('form-remote').reset();
+  ['r-recommend-detail','r-interview-detail','r-onboard-detail'].forEach(id => {
+    document.getElementById(id).innerHTML='';
+  });
+  rEntryPicker && rEntryPicker.setDate(today());
+}
+
+// ==================== 删除记录 ====================
+function deleteRecord(id, type) {
+  if(!confirm('确认删除这条记录？')) return;
+  const key = type==='local'?LS_LOCAL:LS_REMOTE;
+  const data = getData(key).filter(r=>r.id!==id);
+  saveData(key, data);
+  showToast('已删除');
+  // 刷新当前视图
+  if(type==='local') showLocalDayData();
+  else showRemoteDayData();
+}
+
+// ==================== 编辑记录（简化版弹窗） ====================
+function editRecord(id, type) {
+  const key = type==='local'?LS_LOCAL:LS_REMOTE;
+  const rec = getData(key).find(r=>r.id===id);
+  if(!rec) return;
+  editingId = id; editingType = type;
+
+  document.getElementById('modal-title').textContent = type==='local'?`编辑英国招聘记录 — ${rec.date}`:`编辑远程记录 — ${rec.date} ${rec.name}`;
+
+  if(type==='local') {
+    document.getElementById('modal-body').innerHTML = `
+      <div class="form-row">
+        <div class="form-group"><label>日期</label><input id="e-date" class="form-control" value="${rec.date}" readonly></div>
+        <div class="form-group"><label>录入人</label><select id="e-recorder" class="form-control"><option value="">-- 选填 --</option>${MEMBERS.map(m=>`<option ${rec.recorder===m?'selected':''}>${m}</option>`).join('')}</select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>新收简历</label><input id="e-cv" type="number" class="form-control" value="${rec.cvTotal||0}"></div>
+        <div class="form-group"><label>新增初筛</label><input id="e-screen-new" type="number" class="form-control" value="${rec.screenNew||0}"></div>
+        <div class="form-group"><label>在沟通人数</label><input id="e-screen-ongoing" type="number" class="form-control" value="${rec.screenOngoing||0}"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>推荐总数</label><input id="e-recommend" type="number" class="form-control" value="${rec.recommendTotal||0}"></div>
+        <div class="form-group"><label>主动获取推荐</label><input id="e-proactive" type="number" class="form-control" value="${rec.proactiveTotal||0}"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>一面数量</label><input id="e-int1" type="number" class="form-control" value="${rec.int1Total||0}"></div>
+        <div class="form-group"><label>二面数量</label><input id="e-int2" type="number" class="form-control" value="${rec.int2Total||0}"></div>
+        <div class="form-group"><label>Offer 数</label><input id="e-offer" type="number" class="form-control" value="${rec.offer||0}"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>入职数</label><input id="e-onboard" type="number" class="form-control" value="${rec.onboard||0}"></div>
+      </div>
+      <div class="form-group"><label>备注</label><textarea id="e-remark" class="form-control">${rec.remark||''}</textarea></div>`;
+  } else {
+    document.getElementById('modal-body').innerHTML = `
+      <div class="form-row">
+        <div class="form-group"><label>日期</label><input id="e-date" class="form-control" value="${rec.date}" readonly></div>
+        <div class="form-group"><label>专员姓名</label><select id="e-name" class="form-control">${MEMBERS.map(m=>`<option ${rec.name===m?'selected':''}>${m}</option>`).join('')}</select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>新收简历</label><input id="e-cv" type="number" class="form-control" value="${rec.cvTotal||0}"></div>
+        <div class="form-group"><label>新增初筛</label><input id="e-screen" type="number" class="form-control" value="${rec.screenNew||0}"></div>
+        <div class="form-group"><label>推荐总数</label><input id="e-recommend" type="number" class="form-control" value="${rec.recommendTotal||0}"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>约面数量</label><input id="e-scheduled" type="number" class="form-control" value="${rec.scheduledInt||0}"></div>
+        <div class="form-group"><label>当日面试</label><input id="e-interview" type="number" class="form-control" value="${rec.interviewTotal||0}"></div>
+        <div class="form-group"><label>Offer申请</label><input id="e-offer" type="number" class="form-control" value="${rec.offer||0}"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>入职数</label><input id="e-onboard" type="number" class="form-control" value="${rec.onboard||0}"></div>
+      </div>
+      <div class="form-group"><label>备注</label><textarea id="e-remark" class="form-control">${rec.remark||''}</textarea></div>`;
+  }
+
+  document.getElementById('edit-modal').classList.add('open');
+}
+
+function saveEdit() {
+  const key = editingType==='local'?LS_LOCAL:LS_REMOTE;
+  const data = getData(key);
+  const idx = data.findIndex(r=>r.id===editingId);
+  if(idx===-1) return;
+
+  if(editingType==='local') {
+    Object.assign(data[idx], {
+      region: '英国',
+      recorder: document.getElementById('e-recorder').value,
+      cvTotal: +document.getElementById('e-cv').value||0,
+      screenNew: +document.getElementById('e-screen-new').value||0,
+      screenOngoing: +document.getElementById('e-screen-ongoing').value||0,
+      recommendTotal: +document.getElementById('e-recommend').value||0,
+      proactiveTotal: +document.getElementById('e-proactive').value||0,
+      int1Total: +document.getElementById('e-int1').value||0,
+      int2Total: +document.getElementById('e-int2').value||0,
+      offer: +document.getElementById('e-offer').value||0,
+      onboard: +document.getElementById('e-onboard').value||0,
+      remark: document.getElementById('e-remark').value,
+    });
+  } else {
+    Object.assign(data[idx], {
+      name: document.getElementById('e-name').value,
+      cvTotal: +document.getElementById('e-cv').value||0,
+      screenNew: +document.getElementById('e-screen').value||0,
+      recommendTotal: +document.getElementById('e-recommend').value||0,
+      scheduledInt: +document.getElementById('e-scheduled').value||0,
+      interviewTotal: +document.getElementById('e-interview').value||0,
+      offer: +document.getElementById('e-offer').value||0,
+      onboard: +document.getElementById('e-onboard').value||0,
+      remark: document.getElementById('e-remark').value,
+    });
+  }
+
+  saveData(key, data);
+  closeModal();
+  showToast('✓ 已保存');
+  if(editingType==='local') showLocalDayData();
+  else showRemoteDayData();
+}
+
+function closeModal() {
+  document.getElementById('edit-modal').classList.remove('open');
+  editingId = null; editingType = null;
+}
+
+// ==================== 导出 CSV ====================
+function exportCSV(type) {
+  const now = new Date();
+  const year = now.getFullYear(), month = now.getMonth()+1;
+  const dates = getMonthDates(year, month);
+
+  if(type==='local') {
+    const recs = getData(LS_LOCAL).filter(r=>dates.includes(r.date));
+    const headers = ['日期','地区','新收简历','新增初筛','在沟通','推荐总数','主动获取','一面','二面','Offer','入职','录入人','备注'];
+    const rows = recs.map(r=>[r.date,r.region,r.cvTotal,r.screenNew||0,r.screenOngoing||0,r.recommendTotal||0,r.proactiveTotal||0,r.int1Total||0,r.int2Total||0,r.offer||0,r.onboard||0,r.recorder||'',r.remark||'']);
+    downloadCSV(`英国招聘_${year}年${month}月.csv`, [headers,...rows]);
+  } else {
+    const recs = getData(LS_REMOTE).filter(r=>dates.includes(r.date));
+    const headers = ['日期','专员姓名','新收简历','新增初筛','推荐总数','约面','当日面试','Offer申请','入职','备注'];
+    const rows = recs.map(r=>[r.date,r.name,r.cvTotal||0,r.screenNew||0,r.recommendTotal||0,r.scheduledInt||0,r.interviewTotal||0,r.offer||0,r.onboard||0,r.remark||'']);
+    downloadCSV(`远程招聘_${year}年${month}月.csv`, [headers,...rows]);
+  }
+}
+
+function downloadCSV(filename, rows) {
+  const BOM = '\uFEFF';
+  const csv = BOM + rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+}
+
+// ==================== 加载遮罩 ====================
+function showLoading(text='加载中...') {
+  const el = document.getElementById('loading-overlay');
+  document.getElementById('loading-text').textContent = text;
+  el.style.display = 'flex';
+}
+function hideLoading() {
+  document.getElementById('loading-overlay').style.display = 'none';
+}
+
+// ==================== Toast ====================
+function showToast(msg, type='success') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (type==='error'?' error':'');
+  setTimeout(()=>{ el.classList.remove('show'); }, 2500);
+}
+
+// ==================== 清空数据 ====================
+async function clearAllData() {
+  if(!confirm('确认清空所有数据？此操作不可撤销！')) return;
+  showLoading('正在清空...');
+  try {
+    await Promise.all([
+      sbFetch('DELETE', TABLE_LOCAL,  null, '?id=neq.PLACEHOLDER'),
+      sbFetch('DELETE', TABLE_REMOTE, null, '?id=neq.PLACEHOLDER'),
+    ]);
+    _cache[LS_LOCAL]  = [];
+    _cache[LS_REMOTE] = [];
+    localStorage.removeItem('demo_injected');
+    showToast('已清空所有数据');
+    renderDashboard();
+  } catch(e) {
+    showToast('清空失败：' + e.message, 'error');
+  } finally {
+    hideLoading();
+  }
+}
+
+// ==================== 导入真实CSV数据 ====================
+async function importRealData() {
+  if(typeof IMPORT_UK === 'undefined' || typeof IMPORT_REMOTE === 'undefined') {
+    showToast('import_data.js 未找到，请确认文件与看板在同一文件夹', 'error');
+    return;
+  }
+  if(!confirm(`将导入：英国 ${IMPORT_UK.length} 条 + 远程 ${IMPORT_REMOTE.length} 条记录，覆盖现有数据？`)) return;
+  showLoading(`正在导入 ${IMPORT_UK.length + IMPORT_REMOTE.length} 条记录...`);
+  try {
+    // 先清空，再批量写入
+    await Promise.all([
+      sbFetch('DELETE', TABLE_LOCAL,  null, '?id=neq.PLACEHOLDER'),
+      sbFetch('DELETE', TABLE_REMOTE, null, '?id=neq.PLACEHOLDER'),
+    ]);
+    const BATCH = 100;
+    for(let i = 0; i < IMPORT_UK.length; i += BATCH) {
+      const rows = IMPORT_UK.slice(i, i + BATCH).map(r => ({ id: r.id, data: r }));
+      await sbFetch('POST', TABLE_LOCAL, rows);
+    }
+    for(let i = 0; i < IMPORT_REMOTE.length; i += BATCH) {
+      const rows = IMPORT_REMOTE.slice(i, i + BATCH).map(r => ({ id: r.id, data: r }));
+      await sbFetch('POST', TABLE_REMOTE, rows);
+    }
+    _cache[LS_LOCAL]  = IMPORT_UK;
+    _cache[LS_REMOTE] = IMPORT_REMOTE;
+    localStorage.setItem('demo_injected', '1');
+    showToast(`✓ 导入成功：英国 ${IMPORT_UK.length} 条 / 远程 ${IMPORT_REMOTE.length} 条`);
+    renderDashboard();
+  } catch(e) {
+    showToast('导入失败：' + e.message, 'error');
+  } finally {
+    hideLoading();
+  }
+}
+
+// ==================== 自定义岗位管理 ====================
+const LS_CUSTOM_JOBS_UK = 'custom_jobs_uk';
+const LS_CUSTOM_JOBS_REMOTE = 'custom_jobs_remote';
+
+function getCustomJobs(type) {
+  try { return JSON.parse(localStorage.getItem(type==='uk'?LS_CUSTOM_JOBS_UK:LS_CUSTOM_JOBS_REMOTE)) || []; }
+  catch(e) { return []; }
+}
+function saveCustomJob(type, name) {
+  const key = type==='uk'?LS_CUSTOM_JOBS_UK:LS_CUSTOM_JOBS_REMOTE;
+  const list = getCustomJobs(type);
+  if(!list.includes(name)) { list.push(name); localStorage.setItem(key, JSON.stringify(list)); }
+}
+function getAllJobs(type) {
+  const base = type==='uk' ? JOBS_UK : JOBS_REMOTE;
+  const custom = getCustomJobs(type);
+  return [...new Set([...base, ...custom])];
+}
+
+// ==================== 动态行：岗位搜索下拉 + 新增岗位 ====================
+function addRow(containerId, placeholder1='岗位名称', placeholder2='数量') {
+  const container = document.getElementById(containerId);
+  const row = document.createElement('div');
+  row.className = 'dynamic-row';
+  const isJobField = placeholder1 === '岗位名称' || placeholder1 === '岗位';
+  const jobType = containerId.startsWith('r-') ? 'remote' : 'uk';
+
+  if(isJobField) {
+    // 自定义搜索下拉组件
+    row.innerHTML = `
+      <div class="job-combo">
+        <input type="text" class="form-control job-combo-input" placeholder="搜索或输入岗位名称..." autocomplete="off">
+        <div class="job-dropdown"></div>
+      </div>
+      <input type="${placeholder2==='数量'?'number':'text'}" class="form-control" placeholder="${placeholder2}" ${placeholder2==='数量'?'min="0" value="1"':''} style="max-width:100px">
+      <button type="button" class="remove-row" onclick="this.parentElement.remove()">✕</button>`;
+
+    const input = row.querySelector('.job-combo-input');
+    const dropdown = row.querySelector('.job-dropdown');
+
+    // 打开下拉
+    function openDropdown(filterText) {
+      const all = getAllJobs(jobType);
+      const q = (filterText||'').trim().toLowerCase();
+      const matched = q ? all.filter(j=>j.toLowerCase().includes(q)) : all;
+      dropdown.innerHTML = '';
+      if(matched.length === 0 && q) {
+        dropdown.innerHTML = `<div class="job-dropdown-item add-new" data-val="${q}">新增岗位「${q}」</div>`;
+      } else {
+        matched.slice(0,30).forEach(j => {
+          const item = document.createElement('div');
+          item.className = 'job-dropdown-item';
+          item.textContent = j;
+          item.dataset.val = j;
+          dropdown.appendChild(item);
+        });
+        // 如果输入内容不在列表里，追加"新增"选项
+        if(q && !all.some(j=>j.toLowerCase()===q)) {
+          const addItem = document.createElement('div');
+          addItem.className = 'job-dropdown-item add-new';
+          addItem.textContent = `新增岗位「${filterText.trim()}」`;
+          addItem.dataset.val = filterText.trim();
+          addItem.dataset.isNew = '1';
+          dropdown.appendChild(addItem);
+        }
+      }
+      dropdown.classList.add('open');
+    }
+
+    input.addEventListener('focus', () => openDropdown(input.value));
+    input.addEventListener('input', () => openDropdown(input.value));
+
+    dropdown.addEventListener('mousedown', e => {
+      const item = e.target.closest('.job-dropdown-item');
+      if(!item) return;
+      e.preventDefault();
+      const val = item.dataset.val;
+      input.value = val;
+      // 若是新增岗位，保存到自定义列表
+      if(item.dataset.isNew === '1' || item.classList.contains('add-new')) {
+        saveCustomJob(jobType, val);
+      }
+      dropdown.classList.remove('open');
+      // 聚焦到数量输入
+      row.querySelector('input[type="number"], input[placeholder]')?.focus?.();
+    });
+
+    // 点击外部关闭
+    document.addEventListener('click', e => {
+      if(!row.contains(e.target)) dropdown.classList.remove('open');
+    }, true);
+
+    // 键盘导航
+    input.addEventListener('keydown', e => {
+      const items = [...dropdown.querySelectorAll('.job-dropdown-item')];
+      const cur = dropdown.querySelector('.active');
+      let idx = items.indexOf(cur);
+      if(e.key === 'ArrowDown') { e.preventDefault(); idx = Math.min(idx+1, items.length-1); }
+      else if(e.key === 'ArrowUp') { e.preventDefault(); idx = Math.max(idx-1, 0); }
+      else if(e.key === 'Enter' && cur) { e.preventDefault(); cur.dispatchEvent(new MouseEvent('mousedown', {bubbles:true})); return; }
+      else if(e.key === 'Escape') { dropdown.classList.remove('open'); return; }
+      else return;
+      items.forEach(i=>i.classList.remove('active'));
+      if(items[idx]) { items[idx].classList.add('active'); items[idx].scrollIntoView({block:'nearest'}); }
+    });
+
+  } else {
+    row.innerHTML = `
+      <input type="text" class="form-control" placeholder="${placeholder1}">
+      <input type="${placeholder2==='数量'?'number':'text'}" class="form-control" placeholder="${placeholder2}" ${placeholder2==='数量'?'min="0"':''}>
+      <button type="button" class="remove-row" onclick="this.parentElement.remove()">✕</button>`;
+  }
+  container.appendChild(row);
+}
+
+function getRows(containerId) {
+  const container = document.getElementById(containerId);
+  const rows = container.querySelectorAll('.dynamic-row');
+  return Array.from(rows).map(r => {
+    // 兼容 job-combo 组件和普通 input
+    const nameEl = r.querySelector('.job-combo-input') || r.querySelectorAll('input')[0];
+    const qtyEl = r.querySelector('input[type="number"]') || r.querySelectorAll('input')[1];
+    return { name: nameEl?.value.trim(), qty: qtyEl?.value || '1' };
+  }).filter(r => r.name);
+}
+
+// ==================== 预警系统 ====================
+function renderAlerts() {
+  const container = document.getElementById('alerts-container');
+  if(!container) return;
+  const alerts = [];
+  const localRecs = getData(LS_LOCAL);
+  const remoteRecs = getData(LS_REMOTE);
+  const todayStr = today();
+  const nowD = new Date();
+  const isWeekday = nowD.getDay() >= 1 && nowD.getDay() <= 5;
+
+  // 1. 今日是否已录入数据
+  if(isWeekday) {
+    const todayLocal = localRecs.filter(r=>r.date===todayStr);
+    const todayRemote = remoteRecs.filter(r=>r.date===todayStr);
+    if(!todayLocal.length && !todayRemote.length) {
+      alerts.push({type:'warn', icon:'📋', title:'今日尚未录入数据', desc:`今天（${todayStr}）还没有任何记录，请及时填写日报。`});
+    }
+  }
+
+  // 2. 最近7天简历量趋势（同比前7天）
+  const last7 = [], prev7 = [];
+  for(let i=1;i<=7;i++) {
+    const d1 = new Date(nowD); d1.setDate(d1.getDate()-i);
+    const d2 = new Date(nowD); d2.setDate(d2.getDate()-(i+7));
+    const ds1 = dateStr(d1), ds2 = dateStr(d2);
+    const cv1 = sumField(localRecs.filter(r=>r.date===ds1),'cvTotal') + sumField(remoteRecs.filter(r=>r.date===ds1),'cvTotal');
+    const cv2 = sumField(localRecs.filter(r=>r.date===ds2),'cvTotal') + sumField(remoteRecs.filter(r=>r.date===ds2),'cvTotal');
+    last7.push(cv1); prev7.push(cv2);
+  }
+  const sumLast7 = last7.reduce((a,b)=>a+b,0);
+  const sumPrev7 = prev7.reduce((a,b)=>a+b,0);
+  if(sumPrev7 > 0 && sumLast7 < sumPrev7 * 0.7) {
+    const drop = Math.round((1 - sumLast7/sumPrev7)*100);
+    alerts.push({type:'danger', icon:'📉', title:`简历量较上周下降 ${drop}%`, desc:`近7天简历总量 ${sumLast7}，上7天 ${sumPrev7}，显著下滑，请关注渠道来源。`});
+  }
+
+  // 3. 推荐转化率
+  const thisMonthDates = getMonthDates(nowD.getFullYear(), nowD.getMonth()+1);
+  const mLocal = localRecs.filter(r=>thisMonthDates.includes(r.date));
+  const mRemote = remoteRecs.filter(r=>thisMonthDates.includes(r.date));
+  const totalCV = sumField(mLocal,'cvTotal') + sumField(mRemote,'cvTotal');
+  const totalRec = sumField(mLocal,'recommendTotal') + sumField(mRemote,'recommendTotal');
+  if(totalCV > 50 && totalRec / totalCV < 0.05) {
+    const rate = (totalRec/totalCV*100).toFixed(1);
+    alerts.push({type:'warn', icon:'⚠️', title:`本月推荐转化率偏低（${rate}%）`, desc:`简历 ${totalCV} 份，推荐 ${totalRec} 人，建议检查筛选标准或JD匹配度。`});
+  }
+
+  // 4. 面试→Offer 转化
+  const totalInt = sumField(mLocal,'int1Total')+sumField(mLocal,'int2Total')+sumField(mRemote,'interviewTotal');
+  const totalOffer = sumField(mLocal,'offer')+sumField(mRemote,'offer');
+  if(totalInt > 10 && totalOffer / totalInt < 0.15) {
+    const rate = (totalOffer/totalInt*100).toFixed(1);
+    alerts.push({type:'warn', icon:'🎯', title:`本月面试→Offer 转化率偏低（${rate}%）`, desc:`面试 ${totalInt} 场，Offer ${totalOffer} 个，建议复盘面试标准或候选人质量。`});
+  }
+
+  // 5. 远程成员 3+ 个工作日未录入
+  const inactive = [];
+  MEMBERS.forEach(m => {
+    const memberRecs = remoteRecs.filter(r=>r.name===m);
+    if(!memberRecs.length) return;
+    const lastDate = memberRecs.map(r=>r.date).sort().pop();
+    const daysDiff = Math.floor((nowD - new Date(lastDate+'T00:00:00')) / 86400000);
+    if(daysDiff >= 5) inactive.push(`${m}（最后录入：${lastDate}）`);
+  });
+  if(inactive.length) {
+    alerts.push({type:'info', icon:'👤', title:`${inactive.length} 位成员超过5天未录入数据`, desc:inactive.join('、')});
+  }
+
+  if(!alerts.length) { container.innerHTML=''; return; }
+  container.innerHTML = alerts.map(a=>`
+    <div class="alert-banner ${a.type}">
+      <div class="alert-icon">${a.icon}</div>
+      <div class="alert-body">
+        <div class="alert-title">${a.title}</div>
+        <div class="alert-desc">${a.desc}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ==================== 岗位分析页 ====================
+let currentJobTypeFilter = 'all';
+let currentJobName = null;
+
+function jobTypeFilter(type, btn) {
+  document.querySelectorAll('#page-jobs .sub-tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  currentJobTypeFilter = type;
+  renderJobList();
+}
+
+function renderJobList() {
+  const q = (document.getElementById('job-search-input')?.value || '').toLowerCase();
+  const localRecs = getData(LS_LOCAL);
+  const remoteRecs = getData(LS_REMOTE);
+
+  // 聚合所有岗位数据
+  const jobMap = {};
+
+  const processRecs = (recs, type) => {
+    recs.forEach(r => {
+      (r.recommendDetail||[]).forEach(d => {
+        if(!d.name) return;
+        if(!jobMap[d.name]) jobMap[d.name] = {name:d.name, type, cv:0, rec:0, int:0, offer:0, onboard:0};
+        jobMap[d.name].rec += +d.qty||0;
+        jobMap[d.name].type = type;
+      });
+      if(type==='uk') {
+        (r.int1Detail||[]).forEach(d=>{ if(d.name&&jobMap[d.name]) jobMap[d.name].int+=1; });
+        (r.int2Detail||[]).forEach(d=>{ if(d.name&&jobMap[d.name]) jobMap[d.name].int+=1; });
+        if(r.offer && r.int1Detail?.length) r.int1Detail.forEach(d=>{ if(d.name&&jobMap[d.name]) jobMap[d.name].offer+=Math.ceil(r.offer/Math.max(r.int1Detail.length,1)); });
+        if(r.onboard && r.int1Detail?.length) r.int1Detail.forEach(d=>{ if(d.name&&jobMap[d.name]) jobMap[d.name].onboard+=Math.ceil(r.onboard/Math.max(r.int1Detail.length,1)); });
+      } else {
+        (r.interviewDetail||[]).forEach(d=>{ if(d.name&&jobMap[d.name]) jobMap[d.name].int+=1; });
+        if(r.offer) { const keys = Object.keys(jobMap).filter(k=>jobMap[k].type==='remote'); if(keys.length) jobMap[r.recommendDetail?.[0]?.name]&&(jobMap[r.recommendDetail[0].name].offer+=r.offer); }
+        if(r.onboard) { if(r.onboardDetail?.length) r.onboardDetail.forEach(d=>{ if(d.name&&jobMap[d.name]) jobMap[d.name].onboard+=+d.qty||0; }); }
+      }
+    });
+  };
+
+  processRecs(localRecs, 'uk');
+  processRecs(remoteRecs, 'remote');
+
+  // 同时从CV详情中统计简历数
+  localRecs.forEach(r => (r.cvDetail||[]).forEach(d=>{ if(d.name&&jobMap[d.name]) jobMap[d.name].cv+=+d.qty||0; }));
+  remoteRecs.forEach(r => (r.cvDetail||[]).forEach(d=>{ if(d.name&&jobMap[d.name]) jobMap[d.name].cv+=+d.qty||0; }));
+
+  let jobs = Object.values(jobMap).filter(j=>j.rec>0);
+  if(currentJobTypeFilter === 'uk') jobs = jobs.filter(j=>j.type==='uk');
+  if(currentJobTypeFilter === 'remote') jobs = jobs.filter(j=>j.type==='remote');
+  if(q) jobs = jobs.filter(j=>j.name.toLowerCase().includes(q));
+  jobs.sort((a,b)=>b.rec-a.rec);
+
+  const grid = document.getElementById('job-grid');
+  if(!jobs.length) { grid.innerHTML='<div class="empty-state"><p>暂无岗位数据</p></div>'; return; }
+  grid.innerHTML = jobs.map(j=>`
+    <div class="job-card" onclick="showJobDetail('${j.name.replace(/'/g,"\\'")}','${j.type}')">
+      <div class="job-card-name" title="${j.name}">${j.name}</div>
+      <div class="job-stats">
+        <div class="job-stat"><div class="job-stat-val">${j.rec}</div><div class="job-stat-label">推荐</div></div>
+        <div class="job-stat"><div class="job-stat-val" style="color:var(--accent3)">${j.int}</div><div class="job-stat-label">面试</div></div>
+        <div class="job-stat"><div class="job-stat-val" style="color:var(--accent5)">${j.onboard}</div><div class="job-stat-label">入职</div></div>
+      </div>
+    </div>`).join('');
+}
+
+function showJobDetail(jobName, jobType) {
+  currentJobName = jobName;
+  const localRecs = getData(LS_LOCAL);
+  const remoteRecs = getData(LS_REMOTE);
+  const isUK = jobType === 'uk';
+  const recs = isUK ? localRecs : remoteRecs;
+
+  // 聚合该岗位所有数据
+  let totalCV=0, totalRec=0, totalInt=0, totalOffer=0, totalOnboard=0;
+  const trendMap = {};
+
+  recs.forEach(r => {
+    const recQty = (r.recommendDetail||[]).filter(d=>d.name===jobName).reduce((s,d)=>s+(+d.qty||0),0);
+    const cvQty = (r.cvDetail||[]).filter(d=>d.name===jobName).reduce((s,d)=>s+(+d.qty||0),0);
+    const intQty = isUK
+      ? ((r.int1Detail||[]).filter(d=>d.name===jobName).length + (r.int2Detail||[]).filter(d=>d.name===jobName).length)
+      : (r.interviewDetail||[]).filter(d=>d.name===jobName).length;
+    const onboardQty = !isUK ? ((r.onboardDetail||[]).filter(d=>d.name===jobName).reduce((s,d)=>s+(+d.qty||0),0)) : 0;
+
+    if(recQty>0 || cvQty>0 || intQty>0) {
+      totalCV += cvQty;
+      totalRec += recQty;
+      totalInt += intQty;
+      totalOnboard += onboardQty;
+      if(!trendMap[r.date]) trendMap[r.date] = {cv:0,rec:0,int:0};
+      trendMap[r.date].cv += cvQty;
+      trendMap[r.date].rec += recQty;
+      trendMap[r.date].int += intQty;
+    }
+  });
+
+  const trendDates = Object.keys(trendMap).sort();
+  const cvMax = Math.max(totalCV, totalRec, 1);
+  const funnelSteps = [
+    {label:'简历收取', val:totalCV, color:'#6c63ff'},
+    {label:'推荐人数', val:totalRec, color:'#00c6ff'},
+    {label:'面试', val:totalInt, color:'#ffd93d'},
+    {label:'入职', val:totalOnboard, color:'#6bcb77'},
+  ];
+
+  document.getElementById('job-list-panel').style.display = 'none';
+  const panel = document.getElementById('job-detail-panel');
+  panel.classList.add('open');
+
+  panel.querySelector('#job-detail-content').innerHTML = `
+    <div class="card mb-16">
+      <div class="card-title"><span class="dot"></span>${jobName} &nbsp;<span class="tag tag-${isUK?'uk':'remote'}">${isUK?'英国':'远程'}</span></div>
+      <div class="grid grid-4" style="gap:12px; margin-bottom:20px">
+        <div class="kpi-card c1"><div class="kpi-label">简历收取</div><div class="kpi-value">${totalCV}</div></div>
+        <div class="kpi-card c2"><div class="kpi-label">推荐人数</div><div class="kpi-value">${totalRec}</div></div>
+        <div class="kpi-card c3"><div class="kpi-label">面试次数</div><div class="kpi-value">${totalInt}</div></div>
+        <div class="kpi-card c5"><div class="kpi-label">入职</div><div class="kpi-value">${totalOnboard}</div></div>
+      </div>
+      <div class="grid grid-2">
+        <div>
+          <div class="card-title" style="font-size:13px"><span class="dot"></span>招聘漏斗</div>
+          <div class="funnel-wrap" style="padding:0">
+            ${funnelSteps.map(s=>`
+            <div class="funnel-bar">
+              <div class="funnel-label">${s.label}</div>
+              <div class="funnel-track">
+                <div class="funnel-fill" style="width:${Math.max(s.val/cvMax*100,2)}%;background:${s.color}">${s.val>0?s.val:''}</div>
+              </div>
+              <div class="funnel-num">${s.val}</div>
+            </div>`).join('')}
+          </div>
+        </div>
+        <div>
+          <div class="card-title" style="font-size:13px"><span class="dot"></span>历史趋势（推荐数）</div>
+          <div class="chart-wrap" style="height:200px"><canvas id="chart-job-trend"></canvas></div>
+        </div>
+      </div>
+    </div>`;
+
+  // 渲染趋势图
+  destroyChart('chart-job-trend');
+  const ctx = document.getElementById('chart-job-trend').getContext('2d');
+  chartInstances['chart-job-trend'] = new Chart(ctx, {
+    type:'bar',
+    data:{ labels:trendDates.map(d=>d.slice(5)),
+      datasets:[
+        {label:'推荐',data:trendDates.map(d=>trendMap[d].rec),backgroundColor:CHART_COLORS[1]},
+        {label:'面试',data:trendDates.map(d=>trendMap[d].int),backgroundColor:CHART_COLORS[3]},
+      ]},
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{color:'#9ba3c7'}}},
+      scales:{ x:{ticks:{color:'#9ba3c7',maxTicksLimit:12},grid:{color:'#2e3248'}}, y:{ticks:{color:'#9ba3c7'},grid:{color:'#2e3248'},beginAtZero:true} } }
+  });
+}
+
+function closeJobDetail() {
+  document.getElementById('job-list-panel').style.display = '';
+  const panel = document.getElementById('job-detail-panel');
+  panel.classList.remove('open');
+  currentJobName = null;
+}
+
+// ==================== 修改 showPage 支持岗位分析页 ====================
+// 初始化 ====================
+window.addEventListener('DOMContentLoaded', async () => {
+  showLoading('正在连接数据库...');
+  try {
+    await loadFromSupabase();
+    // 首次启动且 Supabase 为空时，导入本地历史数据
+    if(!localStorage.getItem('demo_injected') && typeof IMPORT_UK !== 'undefined'
+       && _cache[LS_LOCAL].length === 0 && _cache[LS_REMOTE].length === 0) {
+      hideLoading();
+      await importRealData();
+      return;
+    }
+  } catch(e) {
+    showToast('连接 Supabase 失败，请检查网络：' + e.message, 'error');
+  } finally {
+    hideLoading();
+  }
+  renderDashboard();
+  setTimeout(() => { initEntryDatePickers(); }, 100);
+});
+</script>
+</body>
+</html>
